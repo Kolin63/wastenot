@@ -1,4 +1,198 @@
-# Ethylene Sensor
-*If your fruit are going bad, you should try putting a pie in your fridge.*
+# WasteNot – Ethylene Sensor Monitor
 
-This project utilizes a Raspberry Pi 3 and an SGP30 gas detector to alert the user via a web application when ethylene levels in their fridge are too high.
+> *If your fruit are going bad, you should try putting a pie in your fridge.*
+
+WasteNot uses a **Raspberry Pi 3** and an **SGP30 air-quality sensor** to monitor the concentration of Total Volatile Organic Compounds (TVOC) inside your refrigerator. Ethylene, the gas released by ripening fruit, is a major TVOC contributor. When TVOC levels rise above a configurable threshold, the web dashboard alerts you that your produce may be over-ripe.
+
+---
+
+## Features
+
+- 📊 Real-time web dashboard (auto-refreshes every second)
+- 📈 Scrolling TVOC history chart with alert-threshold line
+- 🔔 High-ethylene alert banner
+- 🎭 **Mock/demo mode** – runs without hardware for development or demos
+- 🔧 One-command setup and systemd service scripts
+
+---
+
+## Hardware Requirements
+
+| Component | Notes |
+|---|---|
+| Raspberry Pi 3 (any model) | Any Pi with GPIO header will work |
+| SGP30 breakout board | Available from Adafruit, SparkFun, etc. |
+| 4 × female-to-female jumper wires | For the I²C connection |
+
+---
+
+## Wiring
+
+The SGP30 communicates over **I²C**. Connect it to the Raspberry Pi as shown below.
+
+```
+SGP30 Pin    →   Raspberry Pi Pin   (GPIO / Function)
+─────────────────────────────────────────────────────
+VCC          →   Pin 1              (3.3 V)
+GND          →   Pin 6              (GND)
+SDA          →   Pin 3              (GPIO 2 / SDA1)
+SCL          →   Pin 5              (GPIO 3 / SCL1)
+```
+
+### Raspberry Pi GPIO Reference (relevant pins)
+
+```
+        3.3V  [1] [2]  5V
+  SDA1 GPIO2  [3] [4]  5V
+  SCL1 GPIO3  [5] [6]  GND
+              ...
+```
+
+> ⚠️ The SGP30 runs on **3.3 V** – do **not** connect VCC to a 5 V pin.
+
+After wiring, verify the sensor is visible on the I²C bus:
+
+```bash
+sudo i2cdetect -y 1
+# You should see "58" in the output (SGP30 default address)
+```
+
+---
+
+## Quick Start
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/Kolin63/wastenot.git
+cd wastenot
+```
+
+### 2. Run the setup script
+
+```bash
+chmod +x scripts/setup.sh
+./scripts/setup.sh
+```
+
+This script will:
+- Install `python3`, `python3-venv`, and `i2c-tools`
+- Enable the I²C interface via `raspi-config` (Raspberry Pi only)
+- Create a Python virtual environment (`venv/`)
+- Install all Python dependencies
+
+### 3. Start the application
+
+```bash
+source venv/bin/activate
+python app.py
+```
+
+Open a browser and navigate to `http://<raspberry-pi-ip>:5000`.
+
+---
+
+## Demo / Mock Mode
+
+Run without any hardware attached by setting `MOCK_MODE=true`:
+
+```bash
+MOCK_MODE=true venv/bin/python app.py
+```
+
+The application will generate realistic simulated sensor data, including occasional spikes above the alert threshold.
+
+---
+
+## Run as a System Service (start on boot)
+
+After running the setup script, install WasteNot as a **systemd daemon**:
+
+```bash
+chmod +x scripts/install_service.sh
+./scripts/install_service.sh
+```
+
+The script:
+1. Substitutes your username and app path into `wastenot.service`
+2. Installs the service to `/etc/systemd/system/`
+3. Enables it to start automatically on boot
+4. Starts it immediately
+
+### Useful service commands
+
+```bash
+# View live logs
+sudo journalctl -u wastenot -f
+
+# Check status
+sudo systemctl status wastenot
+
+# Restart
+sudo systemctl restart wastenot
+
+# Stop
+sudo systemctl stop wastenot
+
+# Remove from startup
+sudo systemctl disable wastenot
+```
+
+To run the service in mock mode (e.g. for testing without hardware):
+
+```bash
+MOCK_MODE=true ./scripts/install_service.sh
+```
+
+---
+
+## Configuration
+
+All configuration is done via **environment variables**.
+
+| Variable | Default | Description |
+|---|---|---|
+| `MOCK_MODE` | `false` | `true` to use simulated sensor data |
+| `TVOC_ALERT_THRESHOLD` | `200` | Alert threshold in ppb TVOC |
+| `HISTORY_SIZE` | `300` | Number of readings to keep in memory |
+| `SAMPLE_INTERVAL` | `1.0` | Seconds between sensor reads |
+
+---
+
+## Project Structure
+
+```
+wastenot/
+├── app.py                  # Flask web application
+├── sensor.py               # SGP30 interface + mock mode
+├── templates/
+│   └── index.html          # Dashboard (Bootstrap 5 + Chart.js)
+├── requirements.txt        # Python dependencies
+├── wastenot.service        # systemd unit-file template
+├── scripts/
+│   ├── setup.sh            # Install dependencies, enable I²C
+│   └── install_service.sh  # Install & enable systemd service
+└── README.md
+```
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `SGP30 not detected on I²C bus` | Check wiring; ensure I²C is enabled (`raspi-config` → Interfaces → I2C) |
+| `Remote I/O error` when starting | Reboot after enabling I²C for the first time |
+| Dashboard shows `–` values | Wait for the first sensor reading (up to 5 s) |
+| `Sensor warming up…` status | Normal for the first ~15 s after startup |
+| App not reachable in browser | Check firewall: `sudo ufw allow 5000` |
+
+---
+
+## Dependencies
+
+- [Flask](https://flask.palletsprojects.com/) – web framework
+- [Adafruit CircuitPython SGP30](https://github.com/adafruit/Adafruit_CircuitPython_SGP30) – sensor driver
+- [Chart.js](https://www.chartjs.org/) – charting (loaded from CDN)
+- [Bootstrap 5](https://getbootstrap.com/) – UI framework (loaded from CDN)
+

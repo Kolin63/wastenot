@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WasteNot – Ethylene Monitor</title>
+  <!-- Bootstrap 5 -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    crossorigin="anonymous"
+  />
+  <!-- Bootstrap Icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    crossorigin="anonymous"
+  />
+  <style>
+    :root {
+      --ok-color:    #198754;
+      --warn-color:  #ffc107;
+      --alert-color: #dc3545;
+      --bg-dark:     #0d1117;
+      --card-bg:     #161b22;
+      --border-col:  #30363d;
+      --text-main:   #e6edf3;
+      --text-muted:  #8b949e;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: "Segoe UI", system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    .navbar-brand {
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-col);
+      border-radius: 0.75rem;
+    }
+
+    .stat-value {
+      font-size: 3.5rem;
+      font-weight: 700;
+      line-height: 1.1;
+      transition: color 0.4s;
+    }
+
+    .stat-unit {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+    }
+
+    #alert-banner {
+      transition: opacity 0.4s;
+    }
+
+    .badge-mock {
+      background-color: #6e40c9;
+      color: #fff;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    canvas { max-height: 300px; }
+  </style>
+</head>
+
+<body>
+  <!-- ── Navbar ── -->
+  <nav class="navbar navbar-dark" style="background-color: var(--card-bg); border-bottom: 1px solid var(--border-col);">
+    <div class="container">
+      <span class="navbar-brand">
+        <i class="bi bi-flower1 me-2"></i>WasteNot
+      </span>
+      <span class="text-muted small">Ethylene Sensor Monitor</span>
+      {% if mock_mode %}
+        <span class="badge badge-mock ms-2">DEMO / MOCK MODE</span>
+      {% endif %}
+    </div>
+  </nav>
+
+  <main class="container my-4">
+
+    <!-- ── Alert banner ── -->
+    <div id="alert-banner" class="alert alert-danger d-none mb-4" role="alert">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      <strong>High Ethylene Detected!</strong>
+      TVOC levels are above {{ alert_threshold }}&nbsp;ppb.
+      Your produce may be over-ripe – check the fridge!
+    </div>
+
+    <!-- ── Primary stats ── -->
+    <div class="row g-3 mb-4">
+
+      <!-- TVOC -->
+      <div class="col-sm-6 col-lg-4">
+        <div class="card p-4 h-100 text-center">
+          <div class="text-muted small text-uppercase mb-1 fw-semibold">TVOC (Ethylene proxy)</div>
+          <div class="stat-value" id="tvoc-value">–</div>
+          <div class="stat-unit">ppb</div>
+          <div class="mt-2">
+            <span id="tvoc-badge" class="badge rounded-pill">–</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- eCO2 -->
+      <div class="col-sm-6 col-lg-4">
+        <div class="card p-4 h-100 text-center">
+          <div class="text-muted small text-uppercase mb-1 fw-semibold">eCO₂</div>
+          <div class="stat-value text-info" id="eco2-value">–</div>
+          <div class="stat-unit">ppm</div>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="col-lg-4">
+        <div class="card p-4 h-100">
+          <div class="text-muted small text-uppercase mb-2 fw-semibold">Status</div>
+          <p class="mb-1">
+            <span class="status-dot" id="status-dot" style="background: #8b949e;"></span>
+            <span id="status-text">Connecting…</span>
+          </p>
+          <p class="mb-0 small text-muted">
+            Last update: <span id="last-updated">–</span>
+          </p>
+          <hr style="border-color: var(--border-col);" />
+          <p class="mb-0 small">
+            Alert threshold:
+            <strong class="text-danger">{{ alert_threshold }}&nbsp;ppb</strong> TVOC
+          </p>
+          {% if mock_mode %}
+          <p class="mb-0 small text-muted mt-1">
+            <i class="bi bi-info-circle me-1"></i>
+            Running in demo mode – no real sensor required.
+          </p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Historical chart ── -->
+    <div class="card p-4 mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="mb-0 fw-semibold">TVOC History (last 100 readings)</h6>
+        <span class="text-muted small">updates every second</span>
+      </div>
+      <canvas id="tvoc-chart"></canvas>
+    </div>
+
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer class="text-center text-muted small py-3" style="border-top: 1px solid var(--border-col);">
+    WasteNot &middot; Raspberry Pi 3 + SGP30 Gas Sensor
+  </footer>
+
+  <!-- Chart.js -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"
+    crossorigin="anonymous"
+  ></script>
+  <!-- Bootstrap JS -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+    crossorigin="anonymous"
+  ></script>
+
+  <script>
+    const ALERT_THRESHOLD = {{ alert_threshold }};
+    const WARN_THRESHOLD_MULTIPLIER = 0.75;
+
+    // ── Color helpers ────────────────────────────────────────────────────
+    function tvocColor(tvoc) {
+      if (tvoc >= ALERT_THRESHOLD)                          return getComputedStyle(document.documentElement).getPropertyValue('--alert-color').trim();
+      if (tvoc >= ALERT_THRESHOLD * WARN_THRESHOLD_MULTIPLIER) return getComputedStyle(document.documentElement).getPropertyValue('--warn-color').trim();
+      return getComputedStyle(document.documentElement).getPropertyValue('--ok-color').trim();
+    }
+
+    function tvocLabel(tvoc, status) {
+      if (status === 'warming_up') return 'Warming Up';
+      if (status === 'error')      return 'Sensor Error';
+      if (tvoc >= ALERT_THRESHOLD) return 'HIGH – CHECK FRIDGE';
+      if (tvoc >= ALERT_THRESHOLD * 0.75) return 'Elevated';
+      return 'Normal';
+    }
+
+    function statusDotColor(status, alert) {
+      if (status === 'error')      return '#6e40c9';
+      if (status === 'warming_up') return '#ffc107';
+      if (alert)                   return '#dc3545';
+      return '#198754';
+    }
+
+    function humanStatus(status, alert) {
+      if (status === 'mock')        return alert ? 'Demo – High level simulated' : 'Demo mode running';
+      if (status === 'warming_up')  return 'Sensor warming up…';
+      if (status === 'error')       return 'Sensor error – check connection';
+      if (status === 'ok')          return alert ? 'Alert: high ethylene level' : 'Sensor OK – levels normal';
+      return status;
+    }
+
+    // ── Chart setup ──────────────────────────────────────────────────────
+    const chartCtx = document.getElementById('tvoc-chart').getContext('2d');
+    const tvocChart = new Chart(chartCtx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'TVOC (ppb)',
+          data: [],
+          borderColor: '#58a6ff',
+          backgroundColor: 'rgba(88,166,255,0.08)',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        animation: false,
+        scales: {
+          x: {
+            ticks: { color: '#8b949e', maxTicksLimit: 8, maxRotation: 0 },
+            grid:  { color: 'rgba(48,54,61,0.8)' },
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { color: '#8b949e' },
+            grid:  { color: 'rgba(48,54,61,0.8)' },
+          }
+        },
+        plugins: {
+          legend: { labels: { color: '#e6edf3' } },
+          annotation: {},
+        }
+      }
+    });
+
+    // ── Alert threshold line ──────────────────────────────────────────────
+    function drawThresholdLine(chart) {
+      const { ctx, chartArea, scales } = chart;
+      if (!chartArea) return;
+      const y = scales.y.getPixelForValue(ALERT_THRESHOLD);
+      ctx.save();
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = '#dc3545';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(chartArea.left, y);
+      ctx.lineTo(chartArea.right, y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    const thresholdPlugin = {
+      id: 'thresholdLine',
+      afterDraw: (chart) => drawThresholdLine(chart),
+    };
+    Chart.register(thresholdPlugin);
+
+    // ── DOM refs ─────────────────────────────────────────────────────────
+    const tvocEl        = document.getElementById('tvoc-value');
+    const eco2El        = document.getElementById('eco2-value');
+    const tvocBadge     = document.getElementById('tvoc-badge');
+    const alertBanner   = document.getElementById('alert-banner');
+    const statusDot     = document.getElementById('status-dot');
+    const statusText    = document.getElementById('status-text');
+    const lastUpdated   = document.getElementById('last-updated');
+
+    // ── Update live reading ───────────────────────────────────────────────
+    async function fetchData() {
+      try {
+        const resp = await fetch('/api/data');
+        if (!resp.ok) return;
+        const d = await resp.json();
+
+        const color = tvocColor(d.tvoc);
+        tvocEl.textContent     = d.tvoc;
+        tvocEl.style.color     = color;
+        eco2El.textContent     = d.eco2;
+        tvocBadge.textContent  = tvocLabel(d.tvoc, d.status);
+        tvocBadge.style.background = color;
+        tvocBadge.style.color  = d.tvoc >= ALERT_THRESHOLD * WARN_THRESHOLD_MULTIPLIER && d.tvoc < ALERT_THRESHOLD ? '#000' : '#fff';
+
+        alertBanner.classList.toggle('d-none', !d.alert);
+
+        statusDot.style.background = statusDotColor(d.status, d.alert);
+        statusText.textContent = humanStatus(d.status, d.alert);
+
+        if (d.timestamp) {
+          const ts = new Date(d.timestamp);
+          lastUpdated.textContent = ts.toLocaleTimeString();
+        }
+      } catch (_) { /* network hiccup – ignore */ }
+    }
+
+    // ── Update history chart ──────────────────────────────────────────────
+    async function fetchHistory() {
+      try {
+        const resp = await fetch('/api/history');
+        if (!resp.ok) return;
+        const history = await resp.json();
+
+        const labels = history.map(r => {
+          const d = new Date(r.timestamp);
+          return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        });
+        const values = history.map(r => r.tvoc);
+
+        tvocChart.data.labels  = labels;
+        tvocChart.data.datasets[0].data = values;
+        tvocChart.update('none');
+      } catch (_) { /* ignore */ }
+    }
+
+    // ── Polling ───────────────────────────────────────────────────────────
+    fetchData();
+    fetchHistory();
+    setInterval(fetchData,    1000);
+    setInterval(fetchHistory, 2000);
+  </script>
+</body>
+</html>

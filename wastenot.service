@@ -1,0 +1,23 @@
+[Unit]
+Description=WasteNot – Ethylene Sensor Monitor
+Documentation=https://github.com/Kolin63/wastenot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%USER%
+WorkingDirectory=%APP_DIR%
+ExecStart=%APP_DIR%/venv/bin/python %APP_DIR%/app.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Environment variables – install_service.sh substitutes these values
+Environment=PYTHONUNBUFFERED=1
+Environment=MOCK_MODE=%MOCK_MODE%
+Environment=TVOC_ALERT_THRESHOLD=%TVOC_ALERT_THRESHOLD%
+
+[Install]
+WantedBy=multi-user.target
