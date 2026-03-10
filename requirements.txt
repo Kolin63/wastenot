@@ -1,0 +1,7 @@
+# Core web framework
+Flask>=2.3.0,<4.0.0
+
+# Adafruit SGP30 sensor library – only needed when running on real hardware.
+# On systems without the sensor, set MOCK_MODE=true and this package is
+# still installed but its hardware imports are never called.
+adafruit-circuitpython-sgp30>=2.3.0
