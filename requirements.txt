@@ -5,3 +5,22 @@ Flask>=2.3.0,<4.0.0
 # On systems without the sensor, set MOCK_MODE=true and this package is
 # still installed but its hardware imports are never called.
 adafruit-circuitpython-sgp30>=2.3.0
+
+# Image processing – used by the camera and food recognition modules.
+opencv-python-headless>=4.8.0
+Pillow>=10.0.0
+
+# Food recognition model (MobileNetV3-Small, ImageNet weights ~10 MB).
+# If torch/torchvision cannot be installed (e.g. on some ARM builds) the
+# food recognition module automatically falls back to mock results.
+# For Raspberry Pi, install the appropriate ARM wheels from
+# https://pytorch.org/  or via  pip install torch torchvision --index-url …
+torch>=2.0.0
+torchvision>=0.15.0
+
+# picamera2 is the standard camera library for Raspberry Pi CSI cameras
+# (including the ArduCam 5MP-OV5647).  It is NOT available on PyPI for
+# non-Pi platforms and must be installed via the system package manager:
+#   sudo apt install -y python3-picamera2
+# The camera module imports it with a graceful fallback, so omitting it
+# here does not break non-Pi setups.

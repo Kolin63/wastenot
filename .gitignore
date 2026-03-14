@@ -31,3 +31,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Runtime data files
+fridge_inventory.json
