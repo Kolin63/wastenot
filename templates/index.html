@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WasteNot – Ethylene Monitor</title>
+  <title>WasteNot – Smart Fridge Monitor</title>
   <!-- Bootstrap 5 -->
   <link
     rel="stylesheet"
@@ -82,6 +82,45 @@
     }
 
     canvas { max-height: 300px; }
+
+    /* Camera */
+    #camera-feed {
+      width: 100%;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border-col);
+      background: #000;
+      display: block;
+    }
+
+    /* Fridge inventory */
+    .fridge-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid var(--border-col);
+    }
+    .fridge-item:last-child { border-bottom: none; }
+    .fridge-item-label { text-transform: capitalize; }
+
+    /* Urgency indicator strip */
+    .urgency-bar {
+      height: 4px;
+      border-radius: 2px;
+      margin-top: 4px;
+      transition: width 0.4s, background-color 0.4s;
+    }
+
+    /* Eat-first cards */
+    .rec-card {
+      background-color: var(--bg-dark);
+      border: 1px solid var(--border-col);
+      border-radius: 0.5rem;
+      padding: 0.6rem 0.8rem;
+      margin-bottom: 0.5rem;
+    }
+    .rec-card .rec-label { font-weight: 600; text-transform: capitalize; }
+    .rec-card .rec-reason { font-size: 0.8rem; color: var(--text-muted); }
   </style>
 </head>
 
@@ -92,7 +131,7 @@
       <span class="navbar-brand">
         <i class="bi bi-flower1 me-2"></i>WasteNot
       </span>
-      <span class="text-muted small">Ethylene Sensor Monitor</span>
+      <span class="text-muted small">Smart Fridge Monitor</span>
       {% if mock_mode %}
         <span class="badge badge-mock ms-2">DEMO / MOCK MODE</span>
       {% endif %}
@@ -106,10 +145,10 @@
       <i class="bi bi-exclamation-triangle-fill me-2"></i>
       <strong>High Ethylene Detected!</strong>
       TVOC levels are above {{ alert_threshold }}&nbsp;ppb.
-      Your produce may be over-ripe – check the fridge!
+      Your produce may be over-ripe – check the recommendations below!
     </div>
 
-    <!-- ── Primary stats ── -->
+    <!-- ── Primary sensor stats ── -->
     <div class="row g-3 mb-4">
 
       <!-- TVOC -->
@@ -159,7 +198,86 @@
       </div>
     </div>
 
-    <!-- ── Historical chart ── -->
+    <!-- ── Camera & Fridge inventory ── -->
+    <div class="row g-3 mb-4">
+
+      <!-- Camera feed -->
+      <div class="col-lg-6">
+        <div class="card p-4 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0 fw-semibold">
+              <i class="bi bi-camera-video me-1"></i> Camera Feed
+            </h6>
+            <button id="scan-btn" class="btn btn-sm btn-primary">
+              <i class="bi bi-upc-scan me-1"></i>Scan Food
+            </button>
+          </div>
+          <img
+            id="camera-feed"
+            src="/api/camera/stream"
+            alt="Camera feed"
+          />
+          <!-- Scan result -->
+          <div id="scan-result" class="mt-3 d-none">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <span class="fw-semibold" style="text-transform:capitalize;" id="scan-label">–</span>
+              <span class="badge bg-secondary" id="scan-confidence">–</span>
+              <span class="text-muted small" id="scan-mock-tag"></span>
+            </div>
+            <div class="d-flex gap-2">
+              <button id="add-item-btn" class="btn btn-sm btn-success">
+                <i class="bi bi-plus-circle me-1"></i>Add to Fridge
+              </button>
+              <button id="rescan-btn" class="btn btn-sm btn-outline-secondary">
+                Rescan
+              </button>
+            </div>
+            <!-- Candidate list -->
+            <div id="candidates-list" class="mt-2 small text-muted"></div>
+          </div>
+          <div id="scan-spinner" class="text-center mt-3 d-none">
+            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+            <span class="ms-2 small">Scanning…</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fridge inventory -->
+      <div class="col-lg-6">
+        <div class="card p-4 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0 fw-semibold">
+              <i class="bi bi-archive me-1"></i> Fridge Inventory
+            </h6>
+            <button
+              class="btn btn-sm btn-outline-secondary"
+              data-bs-toggle="modal"
+              data-bs-target="#addFoodModal"
+            >
+              <i class="bi bi-plus me-1"></i>Add Manually
+            </button>
+          </div>
+          <div id="fridge-list">
+            <p class="text-muted small">No items tracked yet. Scan or add food items above.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Eat First recommendations ── -->
+    <div class="card p-4 mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="mb-0 fw-semibold">
+          <i class="bi bi-lightning-charge me-1 text-warning"></i> Eat These First
+        </h6>
+        <span class="text-muted small">updates every 5 s</span>
+      </div>
+      <div id="recommendations-list">
+        <p class="text-muted small">Add food items to the fridge to see personalised recommendations.</p>
+      </div>
+    </div>
+
+    <!-- ── Historical TVOC chart ── -->
     <div class="card p-4 mb-4">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h6 class="mb-0 fw-semibold">TVOC History (last 100 readings)</h6>
@@ -172,8 +290,59 @@
 
   <!-- ── Footer ── -->
   <footer class="text-center text-muted small py-3" style="border-top: 1px solid var(--border-col);">
-    WasteNot &middot; Raspberry Pi 3 + SGP30 Gas Sensor
+    WasteNot &middot; Raspberry Pi 3 + SGP30 Gas Sensor + ArduCam 5MP-OV5647
   </footer>
+
+  <!-- ── Add Food Modal ── -->
+  <div class="modal fade" id="addFoodModal" tabindex="-1" aria-labelledby="addFoodModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content" style="background-color: var(--card-bg); border-color: var(--border-col); color: var(--text-main);">
+        <div class="modal-header" style="border-color: var(--border-col);">
+          <h5 class="modal-title" id="addFoodModalLabel">Add Food to Fridge</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="food-label-input" class="form-label small text-muted">Food item</label>
+            <input
+              type="text"
+              class="form-control"
+              id="food-label-input"
+              placeholder="e.g. banana, apple, leftover soup…"
+              style="background: var(--bg-dark); color: var(--text-main); border-color: var(--border-col);"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="food-qty-input" class="form-label small text-muted">Quantity</label>
+            <input
+              type="number"
+              class="form-control"
+              id="food-qty-input"
+              value="1"
+              min="1"
+              style="background: var(--bg-dark); color: var(--text-main); border-color: var(--border-col);"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="food-notes-input" class="form-label small text-muted">Notes (optional)</label>
+            <input
+              type="text"
+              class="form-control"
+              id="food-notes-input"
+              placeholder="e.g. opened, organic…"
+              style="background: var(--bg-dark); color: var(--text-main); border-color: var(--border-col);"
+            />
+          </div>
+        </div>
+        <div class="modal-footer" style="border-color: var(--border-col);">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-success" id="modal-add-btn">
+            <i class="bi bi-plus-circle me-1"></i>Add to Fridge
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Chart.js -->
   <script
@@ -189,10 +358,11 @@
   <script>
     const ALERT_THRESHOLD = {{ alert_threshold }};
     const WARN_THRESHOLD_MULTIPLIER = 0.75;
+    const IS_MOCK_MODE = {{ 'true' if mock_mode else 'false' }};
 
     // ── Color helpers ────────────────────────────────────────────────────
     function tvocColor(tvoc) {
-      if (tvoc >= ALERT_THRESHOLD)                          return getComputedStyle(document.documentElement).getPropertyValue('--alert-color').trim();
+      if (tvoc >= ALERT_THRESHOLD) return getComputedStyle(document.documentElement).getPropertyValue('--alert-color').trim();
       if (tvoc >= ALERT_THRESHOLD * WARN_THRESHOLD_MULTIPLIER) return getComputedStyle(document.documentElement).getPropertyValue('--warn-color').trim();
       return getComputedStyle(document.documentElement).getPropertyValue('--ok-color').trim();
     }
@@ -221,75 +391,79 @@
     }
 
     // ── Chart setup ──────────────────────────────────────────────────────
-    const chartCtx = document.getElementById('tvoc-chart').getContext('2d');
-    const tvocChart = new Chart(chartCtx, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [{
-          label: 'TVOC (ppb)',
-          data: [],
-          borderColor: '#58a6ff',
-          backgroundColor: 'rgba(88,166,255,0.08)',
-          borderWidth: 2,
-          pointRadius: 0,
-          tension: 0.3,
-          fill: true,
-        }]
-      },
-      options: {
-        responsive: true,
-        animation: false,
-        scales: {
-          x: {
-            ticks: { color: '#8b949e', maxTicksLimit: 8, maxRotation: 0 },
-            grid:  { color: 'rgba(48,54,61,0.8)' },
-          },
-          y: {
-            beginAtZero: true,
-            ticks: { color: '#8b949e' },
-            grid:  { color: 'rgba(48,54,61,0.8)' },
-          }
+    let tvocChart = null;
+    if (typeof Chart !== 'undefined') {
+      const chartCtx = document.getElementById('tvoc-chart').getContext('2d');
+      tvocChart = new Chart(chartCtx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'TVOC (ppb)',
+            data: [],
+            borderColor: '#58a6ff',
+            backgroundColor: 'rgba(88,166,255,0.08)',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.3,
+            fill: true,
+          }]
         },
-        plugins: {
-          legend: { labels: { color: '#e6edf3' } },
-          annotation: {},
+        options: {
+          responsive: true,
+          animation: false,
+          scales: {
+            x: {
+              ticks: { color: '#8b949e', maxTicksLimit: 8, maxRotation: 0 },
+              grid:  { color: 'rgba(48,54,61,0.8)' },
+            },
+            y: {
+              beginAtZero: true,
+              ticks: { color: '#8b949e' },
+              grid:  { color: 'rgba(48,54,61,0.8)' },
+            }
+          },
+          plugins: {
+            legend: { labels: { color: '#e6edf3' } },
+            annotation: {},
+          }
         }
-      }
-    });
+      });
 
-    // ── Alert threshold line ──────────────────────────────────────────────
-    function drawThresholdLine(chart) {
-      const { ctx, chartArea, scales } = chart;
-      if (!chartArea) return;
-      const y = scales.y.getPixelForValue(ALERT_THRESHOLD);
-      ctx.save();
-      ctx.setLineDash([6, 4]);
-      ctx.strokeStyle = '#dc3545';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(chartArea.left, y);
-      ctx.lineTo(chartArea.right, y);
-      ctx.stroke();
-      ctx.restore();
+      // ── Alert threshold line ──────────────────────────────────────────
+      Chart.register({
+        id: 'thresholdLine',
+        afterDraw: (chart) => {
+          const { ctx, chartArea, scales } = chart;
+          if (!chartArea) return;
+          const y = scales.y.getPixelForValue(ALERT_THRESHOLD);
+          ctx.save();
+          ctx.setLineDash([6, 4]);
+          ctx.strokeStyle = '#dc3545';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(chartArea.left, y);
+          ctx.lineTo(chartArea.right, y);
+          ctx.stroke();
+          ctx.restore();
+        },
+      });
+    } else {
+      // Chart.js unavailable (CDN blocked) – hide the chart card gracefully
+      const chartCard = document.getElementById('tvoc-chart').closest('.card');
+      if (chartCard) chartCard.style.display = 'none';
     }
 
-    const thresholdPlugin = {
-      id: 'thresholdLine',
-      afterDraw: (chart) => drawThresholdLine(chart),
-    };
-    Chart.register(thresholdPlugin);
-
     // ── DOM refs ─────────────────────────────────────────────────────────
-    const tvocEl        = document.getElementById('tvoc-value');
-    const eco2El        = document.getElementById('eco2-value');
-    const tvocBadge     = document.getElementById('tvoc-badge');
-    const alertBanner   = document.getElementById('alert-banner');
-    const statusDot     = document.getElementById('status-dot');
-    const statusText    = document.getElementById('status-text');
-    const lastUpdated   = document.getElementById('last-updated');
+    const tvocEl          = document.getElementById('tvoc-value');
+    const eco2El          = document.getElementById('eco2-value');
+    const tvocBadge       = document.getElementById('tvoc-badge');
+    const alertBanner     = document.getElementById('alert-banner');
+    const statusDot       = document.getElementById('status-dot');
+    const statusText      = document.getElementById('status-text');
+    const lastUpdated     = document.getElementById('last-updated');
 
-    // ── Update live reading ───────────────────────────────────────────────
+    // ── Update live sensor reading ────────────────────────────────────────
     async function fetchData() {
       try {
         const resp = await fetch('/api/data');
@@ -318,6 +492,7 @@
 
     // ── Update history chart ──────────────────────────────────────────────
     async function fetchHistory() {
+      if (!tvocChart) return;
       try {
         const resp = await fetch('/api/history');
         if (!resp.ok) return;
@@ -335,11 +510,238 @@
       } catch (_) { /* ignore */ }
     }
 
+    // ── Fridge inventory ──────────────────────────────────────────────────
+    const fridgeListEl = document.getElementById('fridge-list');
+
+    function renderFridgeList(items) {
+      if (!items || items.length === 0) {
+        fridgeListEl.innerHTML = '<p class="text-muted small">No items tracked yet. Scan or add food items above.</p>';
+        return;
+      }
+      fridgeListEl.innerHTML = items.map(item => `
+        <div class="fridge-item" data-id="${item.id}">
+          <div>
+            <span class="fridge-item-label">${escHtml(item.label)}</span>
+            ${item.quantity > 1 ? `<span class="badge bg-secondary ms-1">&times;${item.quantity}</span>` : ''}
+            ${item.notes ? `<span class="text-muted small ms-2">(${escHtml(item.notes)})</span>` : ''}
+          </div>
+          <button class="btn btn-sm btn-outline-danger py-0 px-1 remove-item-btn" data-id="${item.id}" title="Remove">
+            <i class="bi bi-trash3"></i>
+          </button>
+        </div>
+      `).join('');
+
+      fridgeListEl.querySelectorAll('.remove-item-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = parseInt(btn.dataset.id, 10);
+          await removeItem(id);
+        });
+      });
+    }
+
+    async function fetchFridge() {
+      try {
+        const resp = await fetch('/api/fridge');
+        if (!resp.ok) return;
+        const items = await resp.json();
+        renderFridgeList(items);
+      } catch (_) {}
+    }
+
+    async function addItemToFridge(label, quantity, notes) {
+      try {
+        const resp = await fetch('/api/fridge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label, quantity, notes }),
+        });
+        if (!resp.ok) return false;
+        await fetchFridge();
+        await fetchRecommendations();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    async function removeItem(id) {
+      try {
+        await fetch(`/api/fridge/${id}`, { method: 'DELETE' });
+        await fetchFridge();
+        await fetchRecommendations();
+      } catch (_) {}
+    }
+
+    // ── Recommendations ───────────────────────────────────────────────────
+    const recsEl = document.getElementById('recommendations-list');
+
+    function urgencyColor(score) {
+      if (score >= 0.7) return '#dc3545';
+      if (score >= 0.4) return '#ffc107';
+      return '#198754';
+    }
+
+    function urgencyLabel(score) {
+      if (score >= 0.7) return 'Eat today';
+      if (score >= 0.4) return 'Eat soon';
+      return 'OK for now';
+    }
+
+    function renderRecommendations(items) {
+      if (!items || items.length === 0) {
+        recsEl.innerHTML = '<p class="text-muted small">Add food items to the fridge to see personalised recommendations.</p>';
+        return;
+      }
+      recsEl.innerHTML = items.map((item, i) => {
+        const color = urgencyColor(item.urgency_score);
+        const label = urgencyLabel(item.urgency_score);
+        const pct   = Math.round(item.urgency_score * 100);
+        const rank  = i === 0 ? '<i class="bi bi-star-fill text-warning me-1" title="Most urgent"></i>' : '';
+        return `
+          <div class="rec-card">
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="rec-label">${rank}${escHtml(item.label)}${item.quantity > 1 ? ` ×${item.quantity}` : ''}</span>
+              <span class="badge rounded-pill" style="background:${color};">${label}</span>
+            </div>
+            <div class="urgency-bar" style="width:${pct}%;background:${color};"></div>
+            <span class="rec-reason">
+              Ethylene sensitivity: ${Math.round(item.sensitivity * 100)}%
+              &nbsp;·&nbsp; urgency score: ${pct}%
+            </span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function fetchRecommendations() {
+      try {
+        const resp = await fetch('/api/fridge/recommendations');
+        if (!resp.ok) return;
+        const recs = await resp.json();
+        renderRecommendations(recs);
+      } catch (_) {}
+    }
+
+    // ── Food scanning ─────────────────────────────────────────────────────
+    const scanBtn        = document.getElementById('scan-btn');
+    const scanResult     = document.getElementById('scan-result');
+    const scanSpinner    = document.getElementById('scan-spinner');
+    const scanLabelEl    = document.getElementById('scan-label');
+    const scanConfEl     = document.getElementById('scan-confidence');
+    const scanMockTag    = document.getElementById('scan-mock-tag');
+    const candidatesEl   = document.getElementById('candidates-list');
+    const addItemBtn     = document.getElementById('add-item-btn');
+    const rescanBtn      = document.getElementById('rescan-btn');
+    let lastScanLabel    = '';
+    let lastScanQty      = 1;
+
+    async function doScan() {
+      scanResult.classList.add('d-none');
+      scanSpinner.classList.remove('d-none');
+      scanBtn.disabled = true;
+      try {
+        const resp = await fetch('/api/camera/capture', { method: 'POST' });
+        const data = await resp.json();
+        if (resp.ok && data.label) {
+          lastScanLabel = data.label;
+          scanLabelEl.textContent = data.label;
+          scanConfEl.textContent  = `${Math.round(data.confidence * 100)}% confidence`;
+          scanMockTag.textContent = IS_MOCK_MODE ? '· demo result' : '';
+          if (data.candidates && data.candidates.length > 1) {
+            const others = data.candidates.slice(1).map(c =>
+              `<span class="me-2">${escHtml(c.label)} (${Math.round(c.confidence * 100)}%)</span>`
+            ).join('');
+            candidatesEl.innerHTML = `Also considered: ${others}`;
+          } else {
+            candidatesEl.innerHTML = '';
+          }
+          scanResult.classList.remove('d-none');
+        } else {
+          scanLabelEl.textContent = data.error || 'Unknown error';
+          scanResult.classList.remove('d-none');
+        }
+      } catch (_) {
+        scanLabelEl.textContent = 'Scan failed – network error';
+        scanResult.classList.remove('d-none');
+      } finally {
+        scanSpinner.classList.add('d-none');
+        scanBtn.disabled = false;
+      }
+    }
+
+    scanBtn.addEventListener('click', doScan);
+    rescanBtn.addEventListener('click', doScan);
+
+    addItemBtn.addEventListener('click', async () => {
+      if (!lastScanLabel) return;
+      addItemBtn.disabled = true;
+      const ok = await addItemToFridge(lastScanLabel, 1, '');
+      if (ok) {
+        addItemBtn.textContent = '✓ Added!';
+        setTimeout(() => {
+          addItemBtn.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Add to Fridge';
+          addItemBtn.disabled = false;
+          scanResult.classList.add('d-none');
+        }, 1500);
+      } else {
+        addItemBtn.disabled = false;
+      }
+    });
+
+    // ── Manual add modal ──────────────────────────────────────────────────
+    const modalAddBtn    = document.getElementById('modal-add-btn');
+    const foodLabelInput = document.getElementById('food-label-input');
+    const foodQtyInput   = document.getElementById('food-qty-input');
+    const foodNotesInput = document.getElementById('food-notes-input');
+    const addFoodModal   = (typeof bootstrap !== 'undefined')
+      ? bootstrap.Modal.getOrCreateInstance(document.getElementById('addFoodModal'))
+      : null;
+
+    modalAddBtn.addEventListener('click', async () => {
+      const label = foodLabelInput.value.trim();
+      if (!label) {
+        foodLabelInput.focus();
+        return;
+      }
+      const qty   = parseInt(foodQtyInput.value, 10) || 1;
+      const notes = foodNotesInput.value.trim();
+      modalAddBtn.disabled = true;
+      const ok = await addItemToFridge(label, qty, notes);
+      modalAddBtn.disabled = false;
+      if (ok) {
+        foodLabelInput.value = '';
+        foodQtyInput.value   = '1';
+        foodNotesInput.value = '';
+        if (addFoodModal) addFoodModal.hide();
+      }
+    });
+
+    // Allow Enter key in modal inputs to submit
+    [foodLabelInput, foodQtyInput, foodNotesInput].forEach(el => {
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter') modalAddBtn.click();
+      });
+    });
+
+    // ── Utility ───────────────────────────────────────────────────────────
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
     // ── Polling ───────────────────────────────────────────────────────────
     fetchData();
     fetchHistory();
-    setInterval(fetchData,    1000);
-    setInterval(fetchHistory, 2000);
+    fetchFridge();
+    fetchRecommendations();
+
+    setInterval(fetchData,            1000);
+    setInterval(fetchHistory,         2000);
+    setInterval(fetchFridge,          5000);
+    setInterval(fetchRecommendations, 5000);
   </script>
 </body>
 </html>

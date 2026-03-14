@@ -80,9 +80,30 @@ if [ "$IS_RPI" = "true" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 4. Python virtual environment
+# 4. Enable camera (CSI) and install picamera2 (Raspberry Pi only)
 # ---------------------------------------------------------------------------
-VENV_DIR="$APP_DIR/venv"
+if [ "$IS_RPI" = "true" ]; then
+    info "Enabling CSI camera interface…"
+    if command -v raspi-config &>/dev/null; then
+        # do_camera 0 = enable legacy camera; for picamera2 we use the libcamera stack
+        sudo raspi-config nonint do_camera 0 2>/dev/null || true
+    fi
+
+    # Ensure the libcamera stack and picamera2 are present
+    info "Installing libcamera and picamera2…"
+    sudo apt-get install -y libcamera-apps python3-picamera2 \
+        python3-libcamera python3-kms++ libcap-dev
+
+    # Install OpenCV system libraries (needed by opencv-python-headless)
+    info "Installing OpenCV system dependencies…"
+    sudo apt-get install -y libopencv-dev python3-opencv
+else
+    info "Installing OpenCV system dependencies (non-Pi)…"
+    sudo apt-get install -y libopencv-dev 2>/dev/null || true
+fi
+# ---------------------------------------------------------------------------
+# 5. Python virtual environment
+# ---------------------------------------------------------------------------
 if [ ! -d "$VENV_DIR" ]; then
     info "Creating Python virtual environment at $VENV_DIR…"
     python3 -m venv "$VENV_DIR"
@@ -96,7 +117,7 @@ info "Installing Python dependencies…"
 info "Python dependencies installed."
 
 # ---------------------------------------------------------------------------
-# 5. Done
+# 6. Done
 # ---------------------------------------------------------------------------
 echo ""
 echo "╔══════════════════════════════════════╗"
