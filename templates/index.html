@@ -198,6 +198,43 @@
       </div>
     </div>
 
+    {% if mock_mode %}
+    <!-- ── Demo: Ethylene Level Slider ── -->
+    <div class="card p-4 mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="mb-0 fw-semibold">
+          <i class="bi bi-sliders me-1" style="color:#6e40c9;"></i> Demo Controls – Ethylene Level
+        </h6>
+        <span class="badge badge-mock">DEMO MODE</span>
+      </div>
+      <label class="form-label small text-muted mb-1" for="ethylene-slider">
+        Drag the slider to simulate different ethylene (TVOC) levels:
+      </label>
+      <div class="d-flex align-items-center gap-3">
+        <span class="small text-muted" style="min-width:3rem;">0 ppb</span>
+        <input
+          type="range"
+          class="form-range flex-grow-1"
+          id="ethylene-slider"
+          min="0"
+          max="500"
+          step="1"
+          value="60"
+        />
+        <span class="small text-muted" style="min-width:4rem; text-align:right;">500 ppb</span>
+      </div>
+      <div class="d-flex justify-content-between align-items-center mt-2">
+        <span class="small text-muted">
+          Override value: <strong id="slider-value">60</strong>&nbsp;ppb
+          <span id="slider-auto-tag" class="d-none text-muted"> (auto-simulating)</span>
+        </span>
+        <button class="btn btn-sm btn-outline-secondary" id="slider-reset-btn" title="Resume automatic simulation">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>Auto-simulate
+        </button>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- ── Camera & Fridge inventory ── -->
     <div class="row g-3 mb-4">
 
@@ -359,6 +396,7 @@
     const ALERT_THRESHOLD = {{ alert_threshold }};
     const WARN_THRESHOLD_MULTIPLIER = 0.75;
     const IS_MOCK_MODE = {{ 'true' if mock_mode else 'false' }};
+    const SLIDER_DEBOUNCE_MS = 150;
 
     // ── Color helpers ────────────────────────────────────────────────────
     function tvocColor(tvoc) {
@@ -730,6 +768,44 @@
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+    }
+
+    // ── Demo: Ethylene level slider ───────────────────────────────────────
+    if (IS_MOCK_MODE) {
+      const slider       = document.getElementById('ethylene-slider');
+      const sliderValEl  = document.getElementById('slider-value');
+      const sliderAutoEl = document.getElementById('slider-auto-tag');
+      const resetBtn     = document.getElementById('slider-reset-btn');
+      let sliderTimer    = null;
+
+      function sendSliderValue(tvoc) {
+        fetch('/api/sensor/mock-tvoc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tvoc }),
+        }).catch(() => { /* ignore network errors */ });
+      }
+
+      slider.addEventListener('input', () => {
+        const val = parseInt(slider.value, 10);
+        sliderValEl.textContent = val;
+        sliderAutoEl.classList.add('d-none');
+        clearTimeout(sliderTimer);
+        sliderTimer = setTimeout(() => sendSliderValue(val), SLIDER_DEBOUNCE_MS);
+      });
+
+      resetBtn.addEventListener('click', () => {
+        fetch('/api/sensor/mock-tvoc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tvoc: null }),
+        }).then(() => {
+          slider.value = 60;
+          sliderValEl.textContent = '60';
+          sliderAutoEl.classList.remove('d-none');
+          setTimeout(() => sliderAutoEl.classList.add('d-none'), 3000);
+        }).catch(() => { /* ignore */ });
+      });
     }
 
     // ── Polling ───────────────────────────────────────────────────────────

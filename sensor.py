@@ -15,6 +15,7 @@ import threading
 import time
 from collections import deque
 from datetime import datetime
+from typing import Optional
 
 # ---------------------------------------------------------------------------
 # Configuration (can be overridden via environment variables)
@@ -43,6 +44,7 @@ current_reading: dict = {
 }
 SENSOR_AVAILABLE: bool = False
 _lock = threading.Lock()
+_mock_tvoc_override: Optional[int] = None
 
 # ---------------------------------------------------------------------------
 # Try to import the real Adafruit SGP30 library
@@ -80,12 +82,17 @@ def _read_hardware() -> tuple[int, int]:
 def _read_mock() -> tuple[int, int]:
     """Generate a plausible simulated reading."""
     t = time.monotonic()
-    # Gentle sinusoidal drift + small noise
-    tvoc = 60 + 40 * math.sin(t / 90) + random.gauss(0, 8)
+    with _lock:
+        override = _mock_tvoc_override
+    if override is not None:
+        tvoc = override
+    else:
+        # Gentle sinusoidal drift + small noise
+        tvoc = 60 + 40 * math.sin(t / 90) + random.gauss(0, 8)
+        # Occasional spike – simulates a burst of ethylene from ripe fruit
+        if random.random() < 0.015:
+            tvoc += random.uniform(120, 350)
     eco2 = 450 + 30 * math.sin(t / 120) + random.gauss(0, 5)
-    # Occasional spike – simulates a burst of ethylene from ripe fruit
-    if random.random() < 0.015:
-        tvoc += random.uniform(120, 350)
     return max(0, int(tvoc)), max(400, int(eco2))
 
 
@@ -147,6 +154,13 @@ def get_history() -> list:
     """Return the full rolling history as a list."""
     with _lock:
         return list(readings_history)
+
+
+def set_mock_tvoc(value: Optional[int]) -> None:
+    """Override the TVOC reading in mock mode. Pass None to resume auto-simulation."""
+    global _mock_tvoc_override
+    with _lock:
+        _mock_tvoc_override = value
 
 
 def start() -> None:
