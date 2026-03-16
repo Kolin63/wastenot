@@ -127,6 +127,35 @@ def api_fridge_remove(item_id: int):
     return jsonify({"removed": item_id})
 
 
+@app.route("/api/sensor/mock-tvoc", methods=["POST"])
+def api_set_mock_tvoc():
+    """
+    Override the simulated TVOC reading in demo/mock mode.
+
+    Expected JSON body::
+
+        {"tvoc": 250}
+
+    Pass ``{"tvoc": null}`` to resume automatic simulation.
+    Only available when the application is running in demo/mock mode.
+    """
+    if not sensor.MOCK_MODE:
+        return jsonify({"error": "Only available in demo mode"}), 403
+    data = request.get_json(force=True, silent=True) or {}
+    raw = data.get("tvoc")
+    if raw is None:
+        sensor.set_mock_tvoc(None)
+        return jsonify({"tvoc": None})
+    try:
+        tvoc = int(raw)
+    except (ValueError, TypeError):
+        return jsonify({"error": "tvoc must be a number"}), 400
+    if not 0 <= tvoc <= 1000:
+        return jsonify({"error": "tvoc must be between 0 and 1000"}), 400
+    sensor.set_mock_tvoc(tvoc)
+    return jsonify({"tvoc": tvoc})
+
+
 @app.route("/api/fridge/recommendations")
 def api_recommendations():
     """
