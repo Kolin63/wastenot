@@ -24,8 +24,8 @@
       --bg-dark:     #0d1117;
       --card-bg:     #161b22;
       --border-col:  #30363d;
-      --text-main:   #e6edf3;
-      --text-muted:  #8b949e;
+      --text-main:   #ffffff;
+      --text-muted:  #b0bec9;
     }
 
     body {
@@ -121,6 +121,7 @@
     }
     .rec-card .rec-label { font-weight: 600; text-transform: capitalize; }
     .rec-card .rec-reason { font-size: 0.8rem; color: var(--text-muted); }
+    .text-muted { color: var(--text-muted) !important; }
   </style>
 </head>
 
@@ -432,6 +433,9 @@
     let tvocChart = null;
     if (typeof Chart !== 'undefined') {
       const chartCtx = document.getElementById('tvoc-chart').getContext('2d');
+      const cssVars   = getComputedStyle(document.documentElement);
+      const textMuted = cssVars.getPropertyValue('--text-muted').trim();
+      const textMain  = cssVars.getPropertyValue('--text-main').trim();
       tvocChart = new Chart(chartCtx, {
         type: 'line',
         data: {
@@ -452,17 +456,17 @@
           animation: false,
           scales: {
             x: {
-              ticks: { color: '#8b949e', maxTicksLimit: 8, maxRotation: 0 },
+              ticks: { color: textMuted, maxTicksLimit: 8, maxRotation: 0 },
               grid:  { color: 'rgba(48,54,61,0.8)' },
             },
             y: {
               beginAtZero: true,
-              ticks: { color: '#8b949e' },
+              ticks: { color: textMuted },
               grid:  { color: 'rgba(48,54,61,0.8)' },
             }
           },
           plugins: {
-            legend: { labels: { color: '#e6edf3' } },
+            legend: { labels: { color: textMain } },
             annotation: {},
           }
         }
