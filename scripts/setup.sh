@@ -19,6 +19,7 @@ set -euo pipefail
 # Resolve the repo root regardless of where the script is called from
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(dirname "$SCRIPT_DIR")"
+VENV_DIR="$APP_DIR/venv"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 info()    { echo -e "${GREEN}[INFO]${NC}  $*"; }
@@ -83,11 +84,37 @@ fi
 # 4. Enable camera (CSI) and install picamera2 (Raspberry Pi only)
 # ---------------------------------------------------------------------------
 if [ "$IS_RPI" = "true" ]; then
-    info "Enabling CSI camera interface…"
-    if command -v raspi-config &>/dev/null; then
-        # do_camera 0 = enable legacy camera; for picamera2 we use the libcamera stack
-        sudo raspi-config nonint do_camera 0 2>/dev/null || true
+    info "Configuring CSI camera interface for libcamera/picamera2…"
+
+    # Determine the correct config.txt path.
+    # Raspberry Pi OS Bookworm stores it under /boot/firmware/; older releases
+    # use /boot/config.txt directly.
+    if [ -f /boot/firmware/config.txt ]; then
+        CONFIG_TXT="/boot/firmware/config.txt"
+    else
+        CONFIG_TXT="/boot/config.txt"
     fi
+
+    # The legacy camera stack (start_x=1, set by `raspi-config do_camera 0`)
+    # uses the bcm2835 V4L2 driver and is INCOMPATIBLE with libcamera and
+    # picamera2.  If it was previously enabled, disable it now so that
+    # libcamera can take control of the camera hardware.
+    if grep -q "^start_x=1" "$CONFIG_TXT" 2>/dev/null; then
+        warn "Legacy camera (start_x=1) found in $CONFIG_TXT."
+        warn "Disabling it – picamera2 requires the libcamera stack."
+        sudo sed -i 's/^start_x=1/start_x=0/' "$CONFIG_TXT"
+        info "Legacy camera disabled in $CONFIG_TXT."
+    fi
+
+    # Ensure camera auto-detection is enabled for the libcamera stack.
+    # This is already the default on Raspberry Pi OS Bookworm but may be
+    # absent on older images.
+    if ! grep -q "^camera_auto_detect" "$CONFIG_TXT" 2>/dev/null; then
+        echo "camera_auto_detect=1" | sudo tee -a "$CONFIG_TXT" > /dev/null
+        info "Added camera_auto_detect=1 to $CONFIG_TXT."
+    fi
+
+    info "A reboot will be required for camera config changes to take effect."
 
     # Ensure the libcamera stack and picamera2 are present
     info "Installing libcamera and picamera2…"

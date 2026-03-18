@@ -62,7 +62,11 @@ sudo i2cdetect -y 1
 
 Connect the ArduCam ribbon cable to the Pi's **CSI-2 camera connector** (the narrow connector near the HDMI port, labelled *CAMERA*).  Ensure the blue side of the ribbon faces the Ethernet port and the metal contacts face the locking clip.
 
-The setup script enables the CSI interface automatically via `raspi-config`.
+> ⚠️ **Raspberry Pi has two ribbon-cable connectors** – one for cameras (labelled *CAMERA*) and one for displays (labelled *DISPLAY*).  The camera **must** be plugged into the *CAMERA* connector, not the *DISPLAY* connector.  They are physically identical (both accept the same ribbon cable) so it is easy to mix them up.
+
+> ℹ️ **Raspberry Pi 5** has *two* CSI camera connectors, labelled **CAM0** and **CAM1**.  The software defaults to **CAM0** (index 0).  If you have plugged the ribbon cable into **CAM1**, set the `CAMERA_INDEX=1` environment variable when starting the application (see [Configuration](#configuration) below).
+
+The setup script configures the CSI interface automatically (disabling the legacy camera stack and enabling `camera_auto_detect` for libcamera).
 
 ---
 
@@ -189,6 +193,8 @@ All configuration is done via **environment variables**.
 | `HISTORY_SIZE` | `300` | Number of sensor readings to keep in memory |
 | `SAMPLE_INTERVAL` | `1.0` | Seconds between sensor reads |
 | `FRIDGE_DATA_FILE` | `fridge_inventory.json` | Path to the persistent inventory file |
+| `CAMERA_INDEX` | `0` | CSI camera index – use `1` if the ribbon cable is plugged into **CAM1** (Raspberry Pi 5 only) |
+| `CAMERA_INTERVAL` | `0.2` | Seconds between captured frames (~5 fps) |
 
 ---
 
@@ -222,7 +228,9 @@ wastenot/
 | Dashboard shows `–` values | Wait for the first sensor reading (up to 5 s) |
 | `Sensor warming up…` status | Normal for the first ~15 s after startup |
 | App not reachable in browser | Check firewall: `sudo ufw allow 5000` |
-| Camera feed shows placeholder only | Ensure the ribbon cable is seated correctly; check `libcamera-hello` works |
+| Camera feed shows placeholder only | Ensure the ribbon cable is seated in the **CAMERA** connector (not the DISPLAY connector); check `libcamera-hello` works |
+| Camera initialises but shows no image | If `start_x=1` is in `/boot/config.txt` or `/boot/firmware/config.txt`, remove or set it to `0` – the legacy camera stack conflicts with `picamera2`/libcamera.  Re-run the setup script to fix this automatically. |
+| Camera not found on Raspberry Pi 5 | The Pi 5 has two connectors: **CAM0** (index 0, default) and **CAM1** (index 1).  If the cable is in CAM1, start the app with `CAMERA_INDEX=1 python app.py` |
 | Food recognition always shows mock | Install `torch` and `torchvision` (see `requirements.txt`) |
 
 ---

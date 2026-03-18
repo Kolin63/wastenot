@@ -23,6 +23,12 @@ MOCK_MODE: bool = os.environ.get("MOCK_MODE", "false").lower() == "true"
 # Lower values give a smoother stream but increase CPU load on the Pi.
 _CAPTURE_INTERVAL: float = float(os.environ.get("CAMERA_INTERVAL", "0.2"))
 
+# Index of the CSI camera to open.  Raspberry Pi 5 has two CSI connectors
+# (CAM0 = index 0, CAM1 = index 1).  If the ribbon cable is plugged into
+# the second connector, set CAMERA_INDEX=1.  Pi 3 / Pi 4 only have one
+# connector so this can be left at the default of 0.
+_CAMERA_INDEX: int = int(os.environ.get("CAMERA_INDEX", "0"))
+
 # ---------------------------------------------------------------------------
 # Internal state
 # ---------------------------------------------------------------------------
@@ -184,7 +190,7 @@ def start() -> None:
         try:
             from picamera2 import Picamera2
 
-            cam = Picamera2()
+            cam = Picamera2(_CAMERA_INDEX)
             cam.configure(
                 cam.create_preview_configuration(
                     main={"size": (640, 480), "format": "RGB888"}
