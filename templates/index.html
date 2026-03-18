@@ -207,9 +207,20 @@
           <i class="bi bi-sliders me-1" style="color:#6e40c9;"></i> Demo Controls – Ethylene Level
         </h6>
         <div class="d-flex align-items-center gap-3">
-          <div class="form-check form-switch mb-0">
-            <input class="form-check-input" type="checkbox" role="switch" id="slider-toggle" checked>
-            <label class="form-check-label small text-muted" for="slider-toggle">Show slider</label>
+          <div class="d-flex align-items-center gap-2">
+            <span class="small text-muted">Hide</span>
+            <input
+              type="range"
+              class="form-range"
+              id="slider-toggle"
+              min="0"
+              max="1"
+              step="1"
+              value="1"
+              style="width:4rem;"
+              aria-label="Toggle ethylene slider visibility"
+            />
+            <span class="small text-muted">Show</span>
           </div>
           <span class="badge badge-mock">DEMO MODE</span>
         </div>
@@ -786,8 +797,8 @@
     if (IS_MOCK_MODE) {
       const sliderToggle = document.getElementById('slider-toggle');
       const sliderBody   = document.getElementById('slider-body');
-      sliderToggle.addEventListener('change', () => {
-        sliderBody.style.display = sliderToggle.checked ? '' : 'none';
+      sliderToggle.addEventListener('input', () => {
+        sliderBody.style.display = sliderToggle.value === '1' ? '' : 'none';
       });
 
       const slider       = document.getElementById('ethylene-slider');
