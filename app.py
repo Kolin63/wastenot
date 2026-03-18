@@ -7,6 +7,7 @@ GET  /                           HTML dashboard
 GET  /api/data                   JSON – most recent sensor reading
 GET  /api/history                JSON – rolling history (last 100 readings)
 GET  /api/camera/stream          MJPEG live camera feed
+GET  /api/camera/status          JSON – camera availability and mock mode flag
 POST /api/camera/capture         Capture a still frame and recognise food
 GET  /api/fridge                 JSON – current fridge inventory
 POST /api/fridge                 JSON – add an item to the fridge
@@ -87,6 +88,12 @@ def camera_capture():
         return jsonify({"error": "Food recognition failed"}), 500
 
     return jsonify(result)
+
+
+@app.route("/api/camera/status")
+def camera_status():
+    """Return camera availability and whether it is running in mock mode."""
+    return jsonify(camera.get_status())
 
 
 # ── Fridge inventory routes ────────────────────────────────────────────────────

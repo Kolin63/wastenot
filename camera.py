@@ -183,6 +183,22 @@ def _camera_loop() -> None:
 # Initialization
 # ---------------------------------------------------------------------------
 
+def get_status() -> dict:
+    """
+    Return the current camera status.
+
+    ``available`` is True when a camera feed is being produced (either real
+    hardware or the mock generator).  ``mock`` is True when the camera is
+    running in mock / demo mode rather than reading from real hardware.
+    """
+    with _frame_lock:
+        has_frame = _latest_frame is not None
+    return {
+        "available": MOCK_MODE or has_frame,
+        "mock": MOCK_MODE,
+    }
+
+
 def start() -> None:
     """Initialize the ArduCam hardware and launch the background capture thread."""
     global _camera

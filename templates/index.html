@@ -233,6 +233,28 @@
           <i class="bi bi-arrow-counterclockwise me-1"></i>Auto-simulate
         </button>
       </div>
+
+      <!-- Food recognition toggle – shown when camera is connected -->
+      <div id="food-recog-toggle-section" class="d-none">
+        <hr class="my-3" style="border-color: var(--border-col);" />
+        <div class="d-flex align-items-center justify-content-between">
+          <span class="small text-muted">
+            <i class="bi bi-camera me-1"></i>Food Recognition (camera connected):
+          </span>
+          <div class="form-check form-switch mb-0">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              role="switch"
+              id="food-recog-toggle"
+              checked
+            />
+            <label class="form-check-label small" for="food-recog-toggle" id="food-recog-toggle-label">
+              Enabled
+            </label>
+          </div>
+        </div>
+      </div>
     </div>
     {% endif %}
 
@@ -810,6 +832,31 @@
           setTimeout(() => sliderAutoEl.classList.add('d-none'), 3000);
         }).catch(() => { /* ignore */ });
       });
+
+      // ── Demo: Food recognition toggle ──────────────────────────────────
+      const foodRecogSection = document.getElementById('food-recog-toggle-section');
+      const foodRecogToggle  = document.getElementById('food-recog-toggle');
+      const foodRecogLabel   = document.getElementById('food-recog-toggle-label');
+
+      function applyFoodRecogState(enabled) {
+        scanBtn.disabled = !enabled;
+        foodRecogLabel.textContent = enabled ? 'Enabled' : 'Disabled';
+      }
+
+      foodRecogToggle.addEventListener('change', () => {
+        applyFoodRecogState(foodRecogToggle.checked);
+      });
+
+      // Show the toggle section only when the camera is available.
+      fetch('/api/camera/status')
+        .then(r => r.json())
+        .then(s => {
+          if (s.available) {
+            foodRecogSection.classList.remove('d-none');
+            applyFoodRecogState(foodRecogToggle.checked);
+          }
+        })
+        .catch(() => { /* camera status unavailable – keep section hidden */ });
     }
 
     // ── Polling ───────────────────────────────────────────────────────────
