@@ -206,32 +206,40 @@
         <h6 class="mb-0 fw-semibold">
           <i class="bi bi-sliders me-1" style="color:#6e40c9;"></i> Demo Controls – Ethylene Level
         </h6>
-        <span class="badge badge-mock">DEMO MODE</span>
+        <div class="d-flex align-items-center gap-3">
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" role="switch" id="slider-toggle" checked>
+            <label class="form-check-label small text-muted" for="slider-toggle">Show slider</label>
+          </div>
+          <span class="badge badge-mock">DEMO MODE</span>
+        </div>
       </div>
-      <label class="form-label small text-muted mb-1" for="ethylene-slider">
-        Drag the slider to simulate different ethylene (TVOC) levels:
-      </label>
-      <div class="d-flex align-items-center gap-3">
-        <span class="small text-muted" style="min-width:3rem;">0 ppb</span>
-        <input
-          type="range"
-          class="form-range flex-grow-1"
-          id="ethylene-slider"
-          min="0"
-          max="500"
-          step="1"
-          value="60"
-        />
-        <span class="small text-muted" style="min-width:4rem; text-align:right;">500 ppb</span>
-      </div>
-      <div class="d-flex justify-content-between align-items-center mt-2">
-        <span class="small text-muted">
-          Override value: <strong id="slider-value">60</strong>&nbsp;ppb
-          <span id="slider-auto-tag" class="d-none text-muted"> (auto-simulating)</span>
-        </span>
-        <button class="btn btn-sm btn-outline-secondary" id="slider-reset-btn" title="Resume automatic simulation">
-          <i class="bi bi-arrow-counterclockwise me-1"></i>Auto-simulate
-        </button>
+      <div id="slider-body">
+        <label class="form-label small text-muted mb-1" for="ethylene-slider">
+          Drag the slider to simulate different ethylene (TVOC) levels:
+        </label>
+        <div class="d-flex align-items-center gap-3">
+          <span class="small text-muted" style="min-width:3rem;">0 ppb</span>
+          <input
+            type="range"
+            class="form-range flex-grow-1"
+            id="ethylene-slider"
+            min="0"
+            max="500"
+            step="1"
+            value="60"
+          />
+          <span class="small text-muted" style="min-width:4rem; text-align:right;">500 ppb</span>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-2">
+          <span class="small text-muted">
+            Override value: <strong id="slider-value">60</strong>&nbsp;ppb
+            <span id="slider-auto-tag" class="d-none text-muted"> (auto-simulating)</span>
+          </span>
+          <button class="btn btn-sm btn-outline-secondary" id="slider-reset-btn" title="Resume automatic simulation">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Auto-simulate
+          </button>
+        </div>
       </div>
     </div>
     {% endif %}
@@ -776,6 +784,12 @@
 
     // ── Demo: Ethylene level slider ───────────────────────────────────────
     if (IS_MOCK_MODE) {
+      const sliderToggle = document.getElementById('slider-toggle');
+      const sliderBody   = document.getElementById('slider-body');
+      sliderToggle.addEventListener('change', () => {
+        sliderBody.style.display = sliderToggle.checked ? '' : 'none';
+      });
+
       const slider       = document.getElementById('ethylene-slider');
       const sliderValEl  = document.getElementById('slider-value');
       const sliderAutoEl = document.getElementById('slider-auto-tag');
