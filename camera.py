@@ -201,7 +201,7 @@ def get_status() -> dict:
 
 def start() -> None:
     """Initialize the ArduCam hardware and launch the background capture thread."""
-    global _camera
+    global _camera, MOCK_MODE
     if not MOCK_MODE and _picamera2_available:
         try:
             from picamera2 import Picamera2
@@ -219,6 +219,7 @@ def start() -> None:
         except Exception as exc:
             print(f"Warning: could not initialize camera: {exc}")
             print("Camera falling back to mock mode.")
+            MOCK_MODE = True
 
     thread = threading.Thread(target=_camera_loop, daemon=True, name="camera-loop")
     thread.start()
