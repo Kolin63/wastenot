@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WasteNot – Demo Controls</title>
+  <!-- Bootstrap 5 -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    crossorigin="anonymous"
+  />
+  <!-- Bootstrap Icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    crossorigin="anonymous"
+  />
+  <style>
+    :root {
+      --bg-dark:    #0d1117;
+      --card-bg:    #161b22;
+      --border-col: #30363d;
+      --text-main:  #ffffff;
+      --text-muted: #ffffff;
+      --bs-body-color:      #ffffff;
+      --bs-heading-color:   #ffffff;
+      --bs-secondary-color: #ffffff;
+      --bs-card-color:      #ffffff;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: "Segoe UI", system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    .navbar-brand {
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-col);
+      border-radius: 0.75rem;
+    }
+
+    .text-muted { color: var(--text-muted) !important; }
+
+    .badge-demo {
+      background-color: #6e40c9;
+      color: #fff;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ── Navbar ── -->
+  <nav class="navbar navbar-dark" style="background-color: var(--card-bg); border-bottom: 1px solid var(--border-col);">
+    <div class="container">
+      <a class="navbar-brand text-decoration-none" href="/">
+        <i class="bi bi-flower1 me-2"></i>WasteNot
+      </a>
+      <span class="text-muted small">Demo Controls</span>
+      <span class="badge badge-demo ms-2">DEMO / MOCK MODE</span>
+    </div>
+  </nav>
+
+  <main class="container my-4" style="max-width: 700px;">
+
+    <div class="mb-4">
+      <h5 class="fw-semibold mb-1">
+        <i class="bi bi-sliders me-2" style="color:#6e40c9;"></i>Demo Controls
+      </h5>
+      <p class="text-muted small mb-0">
+        WasteNot is running in mock/demo mode – no Raspberry Pi hardware is required.
+        Use the controls below to simulate sensor readings and test the application.
+        <a href="/" class="text-decoration-none ms-1">← Back to dashboard</a>
+      </p>
+    </div>
+
+    <!-- ── Ethylene Level Slider ── -->
+    <div class="card p-4 mb-4">
+      <h6 class="fw-semibold mb-3">
+        <i class="bi bi-activity me-1 text-info"></i> Simulate Ethylene (TVOC) Level
+      </h6>
+      <label class="form-label small text-muted mb-1" for="ethylene-slider">
+        Drag the slider to override the simulated TVOC reading on the dashboard:
+      </label>
+      <div class="d-flex align-items-center gap-3">
+        <span class="small text-muted" style="min-width:3rem;">0 ppb</span>
+        <input
+          type="range"
+          class="form-range flex-grow-1"
+          id="ethylene-slider"
+          min="0"
+          max="500"
+          step="1"
+          value="60"
+        />
+        <span class="small text-muted" style="min-width:4rem; text-align:right;">500 ppb</span>
+      </div>
+      <div class="d-flex justify-content-between align-items-center mt-2">
+        <span class="small text-muted">
+          Override value: <strong id="slider-value">60</strong>&nbsp;ppb
+          <span id="slider-auto-tag" class="d-none text-muted"> (auto-simulating)</span>
+        </span>
+        <button class="btn btn-sm btn-outline-secondary" id="slider-reset-btn" title="Resume automatic simulation">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>Auto-simulate
+        </button>
+      </div>
+      <div id="slider-feedback" class="mt-2 small d-none"></div>
+    </div>
+
+    <!-- ── Food Recognition Toggle ── -->
+    <div class="card p-4 mb-4" id="food-recog-card">
+      <h6 class="fw-semibold mb-3">
+        <i class="bi bi-camera me-1 text-info"></i> Food Recognition
+      </h6>
+      <div id="food-recog-unavailable" class="text-muted small">
+        <i class="bi bi-info-circle me-1"></i>Camera not connected – food recognition unavailable.
+      </div>
+      <div id="food-recog-toggle-section" class="d-none">
+        <div class="d-flex align-items-center justify-content-between">
+          <span class="small text-muted">Enable food scanning on the dashboard:</span>
+          <div class="form-check form-switch mb-0">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              role="switch"
+              id="food-recog-toggle"
+              checked
+            />
+            <label class="form-check-label small" for="food-recog-toggle" id="food-recog-toggle-label">
+              Enabled
+            </label>
+          </div>
+        </div>
+        <p class="text-muted small mt-2 mb-0">
+          When disabled, the Scan Food button on the dashboard will be inactive.
+        </p>
+      </div>
+    </div>
+
+    <div class="text-center mt-2">
+      <a href="/" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+      </a>
+    </div>
+
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer class="text-center text-muted small py-3" style="border-top: 1px solid var(--border-col);">
+    WasteNot &middot; Raspberry Pi 3 + SGP30 Gas Sensor + ArduCam 5MP-OV5647
+  </footer>
+
+  <!-- Bootstrap JS -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+    crossorigin="anonymous"
+  ></script>
+
+  <script>
+    const SLIDER_DEBOUNCE_MS = 150;
+
+    // ── Ethylene slider ────────────────────────────────────────────────────
+    const slider        = document.getElementById('ethylene-slider');
+    const sliderValEl   = document.getElementById('slider-value');
+    const sliderAutoEl  = document.getElementById('slider-auto-tag');
+    const resetBtn      = document.getElementById('slider-reset-btn');
+    const sliderFeedback = document.getElementById('slider-feedback');
+    let sliderTimer = null;
+
+    function showFeedback(msg, ok) {
+      sliderFeedback.textContent = msg;
+      sliderFeedback.className = `mt-2 small ${ok ? 'text-success' : 'text-danger'}`;
+      sliderFeedback.classList.remove('d-none');
+      clearTimeout(sliderFeedback._timer);
+      sliderFeedback._timer = setTimeout(() => sliderFeedback.classList.add('d-none'), 2500);
+    }
+
+    function sendSliderValue(tvoc) {
+      fetch('/api/sensor/mock-tvoc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tvoc }),
+      })
+        .then(r => r.ok ? showFeedback(`TVOC set to ${tvoc} ppb`, true) : showFeedback('Failed to update', false))
+        .catch(() => showFeedback('Network error', false));
+    }
+
+    slider.addEventListener('input', () => {
+      const val = parseInt(slider.value, 10);
+      sliderValEl.textContent = val;
+      sliderAutoEl.classList.add('d-none');
+      clearTimeout(sliderTimer);
+      sliderTimer = setTimeout(() => sendSliderValue(val), SLIDER_DEBOUNCE_MS);
+    });
+
+    resetBtn.addEventListener('click', () => {
+      fetch('/api/sensor/mock-tvoc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tvoc: null }),
+      }).then(() => {
+        slider.value = 60;
+        sliderValEl.textContent = '60';
+        sliderAutoEl.classList.remove('d-none');
+        showFeedback('Resumed automatic simulation', true);
+        setTimeout(() => sliderAutoEl.classList.add('d-none'), 3000);
+      }).catch(() => showFeedback('Network error', false));
+    });
+
+    // ── Food recognition toggle ────────────────────────────────────────────
+    const foodRecogUnavailable = document.getElementById('food-recog-unavailable');
+    const foodRecogSection     = document.getElementById('food-recog-toggle-section');
+    const foodRecogToggle      = document.getElementById('food-recog-toggle');
+    const foodRecogLabel       = document.getElementById('food-recog-toggle-label');
+
+    // Store state in sessionStorage so the main dashboard can read it and
+    // enable/disable the Scan Food button accordingly.
+    const RECOG_KEY = 'wastenot_food_recog_enabled';
+
+    function applyFoodRecogState(enabled) {
+      foodRecogLabel.textContent = enabled ? 'Enabled' : 'Disabled';
+      sessionStorage.setItem(RECOG_KEY, enabled ? '1' : '0');
+    }
+
+    foodRecogToggle.addEventListener('change', () => {
+      applyFoodRecogState(foodRecogToggle.checked);
+    });
+
+    // Initialise toggle from stored state.
+    const stored = sessionStorage.getItem(RECOG_KEY);
+    if (stored === '0') {
+      foodRecogToggle.checked = false;
+      applyFoodRecogState(false);
+    }
+
+    // Show toggle only when the camera is available.
+    fetch('/api/camera/status')
+      .then(r => r.json())
+      .then(s => {
+        if (s.available) {
+          foodRecogUnavailable.classList.add('d-none');
+          foodRecogSection.classList.remove('d-none');
+        }
+      })
+      .catch(() => { /* keep unavailable message visible */ });
+  </script>
+</body>
+</html>

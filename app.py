@@ -21,7 +21,7 @@ import camera
 import food_recognition
 import fridge
 import sensor
-from flask import Flask, Response, jsonify, render_template, request
+from flask import Flask, Response, jsonify, redirect, render_template, request, url_for
 
 app = Flask(__name__)
 
@@ -57,9 +57,16 @@ def add_cors_headers(response):
 def index():
     return render_template(
         "index.html",
-        mock_mode=sensor.MOCK_MODE,
         alert_threshold=sensor.TVOC_ALERT_THRESHOLD,
     )
+
+
+@app.route("/demo")
+def demo():
+    """Demo controls page – only available when running in mock mode."""
+    if not sensor.MOCK_MODE:
+        return redirect(url_for("index"))
+    return render_template("demo.html")
 
 
 @app.route("/api/data")
