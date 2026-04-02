@@ -131,11 +131,24 @@ fi
 # ---------------------------------------------------------------------------
 # 5. Python virtual environment
 # ---------------------------------------------------------------------------
+# The venv must be created with --system-site-packages so that
+# system-installed packages such as python3-picamera2 (which are not
+# available on PyPI and cannot be installed via pip) are accessible when
+# the application runs under the systemd service.  If an existing venv was
+# created without this flag, recreate it so the camera works in daemon mode.
+if [ -d "$VENV_DIR" ]; then
+    if grep -q "include-system-site-packages = false" "$VENV_DIR/pyvenv.cfg" 2>/dev/null; then
+        warn "Existing virtual environment lacks --system-site-packages."
+        warn "Recreating it so that system packages (e.g. picamera2) are accessible."
+        rm -rf "$VENV_DIR"
+    else
+        info "Virtual environment already exists with system-site-packages – skipping creation."
+    fi
+fi
+
 if [ ! -d "$VENV_DIR" ]; then
     info "Creating Python virtual environment at $VENV_DIR…"
-    python3 -m venv "$VENV_DIR"
-else
-    info "Virtual environment already exists – skipping creation."
+    python3 -m venv --system-site-packages "$VENV_DIR"
 fi
 
 info "Installing Python dependencies…"
