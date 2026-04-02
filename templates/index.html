@@ -67,11 +67,6 @@
       transition: opacity 0.4s;
     }
 
-    .badge-mock {
-      background-color: #6e40c9;
-      color: #fff;
-    }
-
     .status-dot {
       display: inline-block;
       width: 10px;
@@ -138,9 +133,6 @@
         <i class="bi bi-flower1 me-2"></i>WasteNot
       </span>
       <span class="text-muted small">Smart Fridge Monitor</span>
-      {% if mock_mode %}
-        <span class="badge badge-mock ms-2">DEMO / MOCK MODE</span>
-      {% endif %}
     </div>
   </nav>
 
@@ -194,74 +186,9 @@
             Alert threshold:
             <strong class="text-danger">{{ alert_threshold }}&nbsp;ppb</strong> TVOC
           </p>
-          {% if mock_mode %}
-          <p class="mb-0 small text-muted mt-1">
-            <i class="bi bi-info-circle me-1"></i>
-            Running in demo mode – no real sensor required.
-          </p>
-          {% endif %}
         </div>
       </div>
     </div>
-
-    {% if mock_mode %}
-    <!-- ── Demo: Ethylene Level Slider ── -->
-    <div class="card p-4 mb-4">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h6 class="mb-0 fw-semibold">
-          <i class="bi bi-sliders me-1" style="color:#6e40c9;"></i> Demo Controls – Ethylene Level
-        </h6>
-        <span class="badge badge-mock">DEMO MODE</span>
-      </div>
-      <label class="form-label small text-muted mb-1" for="ethylene-slider">
-        Drag the slider to simulate different ethylene (TVOC) levels:
-      </label>
-      <div class="d-flex align-items-center gap-3">
-        <span class="small text-muted" style="min-width:3rem;">0 ppb</span>
-        <input
-          type="range"
-          class="form-range flex-grow-1"
-          id="ethylene-slider"
-          min="0"
-          max="500"
-          step="1"
-          value="60"
-        />
-        <span class="small text-muted" style="min-width:4rem; text-align:right;">500 ppb</span>
-      </div>
-      <div class="d-flex justify-content-between align-items-center mt-2">
-        <span class="small text-muted">
-          Override value: <strong id="slider-value">60</strong>&nbsp;ppb
-          <span id="slider-auto-tag" class="d-none text-muted"> (auto-simulating)</span>
-        </span>
-        <button class="btn btn-sm btn-outline-secondary" id="slider-reset-btn" title="Resume automatic simulation">
-          <i class="bi bi-arrow-counterclockwise me-1"></i>Auto-simulate
-        </button>
-      </div>
-
-      <!-- Food recognition toggle – shown when camera is connected -->
-      <div id="food-recog-toggle-section" class="d-none">
-        <hr class="my-3" style="border-color: var(--border-col);" />
-        <div class="d-flex align-items-center justify-content-between">
-          <span class="small text-muted">
-            <i class="bi bi-camera me-1"></i>Food Recognition (camera connected):
-          </span>
-          <div class="form-check form-switch mb-0">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              role="switch"
-              id="food-recog-toggle"
-              checked
-            />
-            <label class="form-check-label small" for="food-recog-toggle" id="food-recog-toggle-label">
-              Enabled
-            </label>
-          </div>
-        </div>
-      </div>
-    </div>
-    {% endif %}
 
     <!-- ── Camera & Fridge inventory ── -->
     <div class="row g-3 mb-4">
@@ -287,7 +214,6 @@
             <div class="d-flex align-items-center gap-2 mb-2">
               <span class="fw-semibold" style="text-transform:capitalize;" id="scan-label">–</span>
               <span class="badge bg-secondary" id="scan-confidence">–</span>
-              <span class="text-muted small" id="scan-mock-tag"></span>
             </div>
             <div class="d-flex gap-2">
               <button id="add-item-btn" class="btn btn-sm btn-success">
@@ -423,8 +349,6 @@
   <script>
     const ALERT_THRESHOLD = {{ alert_threshold }};
     const WARN_THRESHOLD_MULTIPLIER = 0.75;
-    const IS_MOCK_MODE = {{ 'true' if mock_mode else 'false' }};
-    const SLIDER_DEBOUNCE_MS = 150;
 
     // ── Color helpers ────────────────────────────────────────────────────
     function tvocColor(tvoc) {
@@ -449,11 +373,9 @@
     }
 
     function humanStatus(status, alert) {
-      if (status === 'mock')        return alert ? 'Demo – High level simulated' : 'Demo mode running';
       if (status === 'warming_up')  return 'Sensor warming up…';
       if (status === 'error')       return 'Sensor error – check connection';
-      if (status === 'ok')          return alert ? 'Alert: high ethylene level' : 'Sensor OK – levels normal';
-      return status;
+      return alert ? 'Alert: high ethylene level' : 'Sensor OK – levels normal';
     }
 
     // ── Chart setup ──────────────────────────────────────────────────────
@@ -697,7 +619,6 @@
     const scanSpinner    = document.getElementById('scan-spinner');
     const scanLabelEl    = document.getElementById('scan-label');
     const scanConfEl     = document.getElementById('scan-confidence');
-    const scanMockTag    = document.getElementById('scan-mock-tag');
     const candidatesEl   = document.getElementById('candidates-list');
     const addItemBtn     = document.getElementById('add-item-btn');
     const rescanBtn      = document.getElementById('rescan-btn');
@@ -715,7 +636,6 @@
           lastScanLabel = data.label;
           scanLabelEl.textContent = data.label;
           scanConfEl.textContent  = `${Math.round(data.confidence * 100)}% confidence`;
-          scanMockTag.textContent = IS_MOCK_MODE ? '· demo result' : '';
           if (data.candidates && data.candidates.length > 1) {
             const others = data.candidates.slice(1).map(c =>
               `<span class="me-2">${escHtml(c.label)} (${Math.round(c.confidence * 100)}%)</span>`
@@ -799,69 +719,6 @@
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
-    }
-
-    // ── Demo: Ethylene level slider ───────────────────────────────────────
-    if (IS_MOCK_MODE) {
-      const slider       = document.getElementById('ethylene-slider');
-      const sliderValEl  = document.getElementById('slider-value');
-      const sliderAutoEl = document.getElementById('slider-auto-tag');
-      const resetBtn     = document.getElementById('slider-reset-btn');
-      let sliderTimer    = null;
-
-      function sendSliderValue(tvoc) {
-        fetch('/api/sensor/mock-tvoc', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tvoc }),
-        }).catch(() => { /* ignore network errors */ });
-      }
-
-      slider.addEventListener('input', () => {
-        const val = parseInt(slider.value, 10);
-        sliderValEl.textContent = val;
-        sliderAutoEl.classList.add('d-none');
-        clearTimeout(sliderTimer);
-        sliderTimer = setTimeout(() => sendSliderValue(val), SLIDER_DEBOUNCE_MS);
-      });
-
-      resetBtn.addEventListener('click', () => {
-        fetch('/api/sensor/mock-tvoc', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tvoc: null }),
-        }).then(() => {
-          slider.value = 60;
-          sliderValEl.textContent = '60';
-          sliderAutoEl.classList.remove('d-none');
-          setTimeout(() => sliderAutoEl.classList.add('d-none'), 3000);
-        }).catch(() => { /* ignore */ });
-      });
-
-      // ── Demo: Food recognition toggle ──────────────────────────────────
-      const foodRecogSection = document.getElementById('food-recog-toggle-section');
-      const foodRecogToggle  = document.getElementById('food-recog-toggle');
-      const foodRecogLabel   = document.getElementById('food-recog-toggle-label');
-
-      function applyFoodRecogState(enabled) {
-        scanBtn.disabled = !enabled;
-        foodRecogLabel.textContent = enabled ? 'Enabled' : 'Disabled';
-      }
-
-      foodRecogToggle.addEventListener('change', () => {
-        applyFoodRecogState(foodRecogToggle.checked);
-      });
-
-      // Show the toggle section only when the camera is available.
-      fetch('/api/camera/status')
-        .then(r => r.json())
-        .then(s => {
-          if (s.available) {
-            foodRecogSection.classList.remove('d-none');
-            applyFoodRecogState(foodRecogToggle.checked);
-          }
-        })
-        .catch(() => { /* camera status unavailable – keep section hidden */ });
     }
 
     // ── Polling ───────────────────────────────────────────────────────────
