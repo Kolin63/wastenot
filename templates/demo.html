@@ -220,7 +220,8 @@
     const foodRecogToggle      = document.getElementById('food-recog-toggle');
     const foodRecogLabel       = document.getElementById('food-recog-toggle-label');
 
-    // Store state in sessionStorage so the main dashboard can read it.
+    // Store state in sessionStorage so the main dashboard can read it and
+    // enable/disable the Scan Food button accordingly.
     const RECOG_KEY = 'wastenot_food_recog_enabled';
 
     function applyFoodRecogState(enabled) {

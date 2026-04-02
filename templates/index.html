@@ -373,9 +373,10 @@
     }
 
     function humanStatus(status, alert) {
-      if (status === 'warming_up')  return 'Sensor warming up…';
-      if (status === 'error')       return 'Sensor error – check connection';
-      return alert ? 'Alert: high ethylene level' : 'Sensor OK – levels normal';
+      if (status === 'warming_up') return 'Sensor warming up…';
+      if (status === 'error')      return 'Sensor error – check connection';
+      if (status === 'ok' || status === 'mock') return alert ? 'Alert: high ethylene level' : 'Sensor OK – levels normal';
+      return status;
     }
 
     // ── Chart setup ──────────────────────────────────────────────────────
@@ -722,6 +723,13 @@
     }
 
     // ── Polling ───────────────────────────────────────────────────────────
+    // Apply food recognition toggle state set on the /demo page (if any).
+    (function applyDemoFoodRecogState() {
+      const RECOG_KEY = 'wastenot_food_recog_enabled';
+      if (sessionStorage.getItem(RECOG_KEY) === '0') {
+        scanBtn.disabled = true;
+      }
+    })();
     fetchData();
     fetchHistory();
     fetchFridge();
