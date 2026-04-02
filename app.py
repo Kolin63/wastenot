@@ -26,6 +26,31 @@ from flask import Flask, Response, jsonify, render_template, request
 app = Flask(__name__)
 
 
+# ── CORS ──────────────────────────────────────────────────────────────────────
+# Allow any origin to read the API so the static GitHub Pages dashboard can
+# fetch live data from this device.  All cross-origin pre-flight OPTIONS
+# requests are answered here as well.
+
+@app.before_request
+def handle_preflight():
+    """Answer CORS pre-flight OPTIONS requests immediately."""
+    if request.method == "OPTIONS":
+        resp = app.make_default_options_response()
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+        return resp
+
+
+@app.after_request
+def add_cors_headers(response):
+    """Attach CORS headers to every response (including streaming ones)."""
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+    return response
+
+
 # ── Sensor routes ─────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -39,7 +64,9 @@ def index():
 
 @app.route("/api/data")
 def api_data():
-    return jsonify(sensor.get_current())
+    data = dict(sensor.get_current())
+    data["alert_threshold"] = sensor.TVOC_ALERT_THRESHOLD
+    return jsonify(data)
 
 
 @app.route("/api/history")

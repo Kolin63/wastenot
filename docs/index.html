@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WasteNot – Smart Fridge Monitor</title>
+  <!-- Bootstrap 5 -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    crossorigin="anonymous"
+  />
+  <!-- Bootstrap Icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    crossorigin="anonymous"
+  />
+  <style>
+    :root {
+      --ok-color:    #198754;
+      --warn-color:  #ffc107;
+      --alert-color: #dc3545;
+      --bg-dark:     #0d1117;
+      --card-bg:     #161b22;
+      --border-col:  #30363d;
+      --text-main:   #ffffff;
+      --text-muted:  #ffffff;
+      --bs-body-color:    #ffffff;
+      --bs-heading-color: #ffffff;
+      --bs-secondary-color: #ffffff;
+      --bs-card-color:    #ffffff;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: "Segoe UI", system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    .navbar-brand {
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-col);
+      border-radius: 0.75rem;
+    }
+
+    .stat-value {
+      font-size: 3.5rem;
+      font-weight: 700;
+      line-height: 1.1;
+      transition: color 0.4s;
+    }
+
+    .stat-unit {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+    }
+
+    #alert-banner { transition: opacity 0.4s; }
+
+    .badge-mock {
+      background-color: #6e40c9;
+      color: #fff;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    canvas { max-height: 300px; }
+
+    #camera-feed {
+      width: 100%;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border-col);
+      background: #000;
+      display: block;
+    }
+
+    .fridge-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid var(--border-col);
+    }
+    .fridge-item:last-child { border-bottom: none; }
+    .fridge-item-label { text-transform: capitalize; }
+
+    .urgency-bar {
+      height: 4px;
+      border-radius: 2px;
+      margin-top: 4px;
+      transition: width 0.4s, background-color 0.4s;
+    }
+
+    .rec-card {
+      background-color: var(--bg-dark);
+      border: 1px solid var(--border-col);
+      border-radius: 0.5rem;
+      padding: 0.6rem 0.8rem;
+      margin-bottom: 0.5rem;
+    }
+    .rec-card .rec-label  { font-weight: 600; text-transform: capitalize; }
+    .rec-card .rec-reason { font-size: 0.8rem; color: var(--text-muted); }
+    .text-muted { color: var(--text-muted) !important; }
+
+    /* Setup overlay */
+    #setup-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-dark);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #setup-overlay .setup-card {
+      width: 100%;
+      max-width: 480px;
+      padding: 2rem;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ── Device setup overlay (shown until a device URL is saved) ── -->
+  <div id="setup-overlay">
+    <div class="card setup-card">
+      <div class="text-center mb-4">
+        <h3 class="fw-bold"><i class="bi bi-flower1 me-2" style="color:#58a6ff;"></i>WasteNot</h3>
+        <p class="text-muted mb-0">Smart Fridge Monitor</p>
+      </div>
+
+      <h6 class="fw-semibold mb-3">Connect to your WasteNot device</h6>
+      <p class="small text-muted mb-3">
+        Enter the URL of your Raspberry Pi running the WasteNot server.
+        You can use a local IP address, a hostname, or a secure tunnel URL.
+      </p>
+
+      <div class="mb-3">
+        <label for="setup-url-input" class="form-label small">Device URL</label>
+        <input
+          type="url"
+          class="form-control"
+          id="setup-url-input"
+          placeholder="http://raspberrypi.local:5000"
+          style="background: var(--bg-dark); color: var(--text-main); border-color: var(--border-col);"
+        />
+        <div id="setup-error" class="text-danger small mt-1 d-none"></div>
+      </div>
+
+      <button class="btn btn-primary w-100" id="setup-connect-btn">
+        <span id="setup-connect-spinner" class="spinner-border spinner-border-sm me-2 d-none" role="status"></span>
+        <i class="bi bi-plug-fill me-1" id="setup-connect-icon"></i>Connect
+      </button>
+
+      <div class="alert alert-warning mt-3 small mb-0" role="alert">
+        <i class="bi bi-shield-exclamation me-1"></i>
+        <strong>HTTPS note:</strong> This page is served over HTTPS.
+        If your device URL uses plain HTTP, your browser will block the
+        connection due to mixed-content restrictions.
+        Use a secure tunnel (e.g.&nbsp;<a href="https://ngrok.com" target="_blank" class="alert-link">ngrok</a>
+        or <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/" target="_blank" class="alert-link">Cloudflare Tunnel</a>)
+        to expose your device over HTTPS, or access this page directly
+        from your local network.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main app (hidden until connected) ── -->
+  <div id="app-content" class="d-none">
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark" style="background-color: var(--card-bg); border-bottom: 1px solid var(--border-col);">
+      <div class="container">
+        <span class="navbar-brand">
+          <i class="bi bi-flower1 me-2"></i>WasteNot
+        </span>
+        <span class="text-muted small d-none d-sm-inline">Smart Fridge Monitor</span>
+        <div class="ms-auto d-flex align-items-center gap-2">
+          <span id="mock-badge" class="badge badge-mock d-none">DEMO / MOCK MODE</span>
+          <button class="btn btn-sm btn-outline-secondary" id="settings-btn" title="Device settings">
+            <i class="bi bi-gear me-1"></i>Settings
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container my-4">
+
+      <!-- Alert banner -->
+      <div id="alert-banner" class="alert alert-danger d-none mb-4" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <strong>High Ethylene Detected!</strong>
+        TVOC levels are above <span id="alert-threshold-display">200</span>&nbsp;ppb.
+        Your produce may be over-ripe – check the recommendations below!
+      </div>
+
+      <!-- Primary sensor stats -->
+      <div class="row g-3 mb-4">
+
+        <!-- TVOC -->
+        <div class="col-sm-6 col-lg-4">
+          <div class="card p-4 h-100 text-center">
+            <div class="text-muted small text-uppercase mb-1 fw-semibold">TVOC (Ethylene proxy)</div>
+            <div class="stat-value" id="tvoc-value">–</div>
+            <div class="stat-unit">ppb</div>
+            <div class="mt-2">
+              <span id="tvoc-badge" class="badge rounded-pill">–</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- eCO2 -->
+        <div class="col-sm-6 col-lg-4">
+          <div class="card p-4 h-100 text-center">
+            <div class="text-muted small text-uppercase mb-1 fw-semibold">eCO₂</div>
+            <div class="stat-value text-info" id="eco2-value">–</div>
+            <div class="stat-unit">ppm</div>
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div class="col-lg-4">
+          <div class="card p-4 h-100">
+            <div class="text-muted small text-uppercase mb-2 fw-semibold">Status</div>
+            <p class="mb-1">
+              <span class="status-dot" id="status-dot" style="background: #8b949e;"></span>
+              <span id="status-text">Connecting…</span>
+            </p>
+            <p class="mb-0 small text-muted">
+              Last update: <span id="last-updated">–</span>
+            </p>
+            <hr style="border-color: var(--border-col);" />
+            <p class="mb-0 small">
+              Alert threshold:
+              <strong class="text-danger"><span id="threshold-display">200</span>&nbsp;ppb</strong> TVOC
+            </p>
+            <p class="mb-0 small text-muted mt-1" id="mock-note" style="display:none;">
+              <i class="bi bi-info-circle me-1"></i>Running in demo mode – no real sensor required.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Demo: Ethylene level slider (only visible in mock/demo mode) -->
+      <div id="mock-controls" class="card p-4 mb-4 d-none">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="mb-0 fw-semibold">
+            <i class="bi bi-sliders me-1" style="color:#6e40c9;"></i> Demo Controls – Ethylene Level
+          </h6>
+          <span class="badge badge-mock">DEMO MODE</span>
+        </div>
+        <label class="form-label small text-muted mb-1" for="ethylene-slider">
+          Drag the slider to simulate different ethylene (TVOC) levels:
+        </label>
+        <div class="d-flex align-items-center gap-3">
+          <span class="small text-muted" style="min-width:3rem;">0 ppb</span>
+          <input
+            type="range"
+            class="form-range flex-grow-1"
+            id="ethylene-slider"
+            min="0" max="500" step="1" value="60"
+          />
+          <span class="small text-muted" style="min-width:4rem; text-align:right;">500 ppb</span>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-2">
+          <span class="small text-muted">
+            Override value: <strong id="slider-value">60</strong>&nbsp;ppb
+            <span id="slider-auto-tag" class="d-none text-muted"> (auto-simulating)</span>
+          </span>
+          <button class="btn btn-sm btn-outline-secondary" id="slider-reset-btn" title="Resume automatic simulation">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Auto-simulate
+          </button>
+        </div>
+
+        <!-- Food recognition toggle -->
+        <div id="food-recog-toggle-section" class="d-none">
+          <hr class="my-3" style="border-color: var(--border-col);" />
+          <div class="d-flex align-items-center justify-content-between">
+            <span class="small text-muted">
+              <i class="bi bi-camera me-1"></i>Food Recognition (camera connected):
+            </span>
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" role="switch" id="food-recog-toggle" checked />
+              <label class="form-check-label small" for="food-recog-toggle" id="food-recog-toggle-label">Enabled</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Camera & Fridge inventory -->
+      <div class="row g-3 mb-4">
+
+        <!-- Camera feed -->
+        <div class="col-lg-6">
+          <div class="card p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="mb-0 fw-semibold">
+                <i class="bi bi-camera-video me-1"></i> Camera Feed
+              </h6>
+              <button id="scan-btn" class="btn btn-sm btn-primary">
+                <i class="bi bi-upc-scan me-1"></i>Scan Food
+              </button>
+            </div>
+            <!-- Camera error message (shown when stream can't be loaded) -->
+            <div id="camera-error" class="d-none alert alert-warning small mb-2" role="alert">
+              <i class="bi bi-exclamation-triangle me-1"></i>
+              Camera stream unavailable. If the page is served over HTTPS and
+              your device URL is HTTP, the browser will block the stream.
+              Use a secure tunnel (e.g. ngrok) or access this page over HTTP.
+            </div>
+            <img id="camera-feed" alt="Camera feed" style="display:none;" />
+            <div id="camera-placeholder" class="text-center text-muted small py-4">
+              <i class="bi bi-camera-video-off fs-3 d-block mb-2"></i>
+              Waiting for camera stream…
+            </div>
+            <!-- Scan result -->
+            <div id="scan-result" class="mt-3 d-none">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="fw-semibold" style="text-transform:capitalize;" id="scan-label">–</span>
+                <span class="badge bg-secondary" id="scan-confidence">–</span>
+                <span class="text-muted small" id="scan-mock-tag"></span>
+              </div>
+              <div class="d-flex gap-2">
+                <button id="add-item-btn" class="btn btn-sm btn-success">
+                  <i class="bi bi-plus-circle me-1"></i>Add to Fridge
+                </button>
+                <button id="rescan-btn" class="btn btn-sm btn-outline-secondary">Rescan</button>
+              </div>
+              <div id="candidates-list" class="mt-2 small text-muted"></div>
+            </div>
+            <div id="scan-spinner" class="text-center mt-3 d-none">
+              <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+              <span class="ms-2 small">Scanning…</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fridge inventory -->
+        <div class="col-lg-6">
+          <div class="card p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="mb-0 fw-semibold">
+                <i class="bi bi-archive me-1"></i> Fridge Inventory
+              </h6>
+              <button
+                class="btn btn-sm btn-outline-secondary"
+                data-bs-toggle="modal"
+                data-bs-target="#addFoodModal"
+              >
+                <i class="bi bi-plus me-1"></i>Add Manually
+              </button>
+            </div>
+            <div id="fridge-list">
+              <p class="text-muted small">No items tracked yet. Scan or add food items above.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Eat First recommendations -->
+      <div class="card p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="mb-0 fw-semibold">
+            <i class="bi bi-lightning-charge me-1 text-warning"></i> Eat These First
+          </h6>
+          <span class="text-muted small">updates every 5 s</span>
+        </div>
+        <div id="recommendations-list">
+          <p class="text-muted small">Add food items to the fridge to see personalised recommendations.</p>
+        </div>
+      </div>
+
+      <!-- Historical TVOC chart -->
+      <div class="card p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="mb-0 fw-semibold">TVOC History (last 100 readings)</h6>
+          <span class="text-muted small">updates every second</span>
+        </div>
+        <canvas id="tvoc-chart"></canvas>
+      </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center text-muted small py-3" style="border-top: 1px solid var(--border-col);">
+      WasteNot &middot; Raspberry Pi 3 + SGP30 Gas Sensor + ArduCam 5MP-OV5647
+    </footer>
+
+  </div><!-- /#app-content -->
+
+  <!-- ── Add Food Modal ── -->
+  <div class="modal fade" id="addFoodModal" tabindex="-1" aria-labelledby="addFoodModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content" style="background-color: var(--card-bg); border-color: var(--border-col); color: var(--text-main);">
+        <div class="modal-header" style="border-color: var(--border-col);">
+          <h5 class="modal-title" id="addFoodModalLabel">Add Food to Fridge</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="food-label-input" class="form-label small text-muted">Food item</label>
+            <input
+              type="text"
+              class="form-control"
+              id="food-label-input"
+              placeholder="e.g. banana, apple, leftover soup…"
+              style="background: var(--bg-dark); color: var(--text-main); border-color: var(--border-col);"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="food-qty-input" class="form-label small text-muted">Quantity</label>
+            <input
+              type="number"
+              class="form-control"
+              id="food-qty-input"
+              value="1" min="1"
+              style="background: var(--bg-dark); color: var(--text-main); border-color: var(--border-col);"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="food-notes-input" class="form-label small text-muted">Notes (optional)</label>
+            <input
+              type="text"
+              class="form-control"
+              id="food-notes-input"
+              placeholder="e.g. opened, organic…"
+              style="background: var(--bg-dark); color: var(--text-main); border-color: var(--border-col);"
+            />
+          </div>
+        </div>
+        <div class="modal-footer" style="border-color: var(--border-col);">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-success" id="modal-add-btn">
+            <i class="bi bi-plus-circle me-1"></i>Add to Fridge
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Device Settings Modal ── -->
+  <div class="modal fade" id="deviceSettingsModal" tabindex="-1" aria-labelledby="deviceSettingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content" style="background-color: var(--card-bg); border-color: var(--border-col); color: var(--text-main);">
+        <div class="modal-header" style="border-color: var(--border-col);">
+          <h5 class="modal-title" id="deviceSettingsModalLabel">
+            <i class="bi bi-gear me-2"></i>Device Settings
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="settings-url-input" class="form-label small">Device URL</label>
+            <input
+              type="url"
+              class="form-control"
+              id="settings-url-input"
+              placeholder="http://raspberrypi.local:5000"
+              style="background: var(--bg-dark); color: var(--text-main); border-color: var(--border-col);"
+            />
+          </div>
+          <div class="alert alert-warning small mb-0" role="alert">
+            <i class="bi bi-shield-exclamation me-1"></i>
+            <strong>HTTPS note:</strong> If this page is loaded over HTTPS, your device URL must
+            also use HTTPS (use a secure tunnel such as
+            <a href="https://ngrok.com" target="_blank" class="alert-link">ngrok</a>
+            or <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/" target="_blank" class="alert-link">Cloudflare Tunnel</a>).
+          </div>
+        </div>
+        <div class="modal-footer" style="border-color: var(--border-col);">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="settings-save-btn">
+            <i class="bi bi-check2 me-1"></i>Save &amp; Reconnect
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+
+  <script>
+    // ── Device URL management ────────────────────────────────────────────
+    const STORAGE_KEY = 'wastenot_device_url';
+    let deviceUrl = (localStorage.getItem(STORAGE_KEY) || '').replace(/\/$/, '');
+
+    function apiUrl(path) {
+      return deviceUrl + path;
+    }
+
+    // ── Runtime state ────────────────────────────────────────────────────
+    let ALERT_THRESHOLD = 200;
+    let WARN_THRESHOLD_MULTIPLIER = 0.75;
+    let IS_MOCK_MODE = false;
+    let SLIDER_DEBOUNCE_MS = 150;
+    const CONNECTION_TIMEOUT_MS = 8000;
+
+    // ── Color helpers ────────────────────────────────────────────────────
+    function tvocColor(tvoc) {
+      if (tvoc >= ALERT_THRESHOLD) return getComputedStyle(document.documentElement).getPropertyValue('--alert-color').trim();
+      if (tvoc >= ALERT_THRESHOLD * WARN_THRESHOLD_MULTIPLIER) return getComputedStyle(document.documentElement).getPropertyValue('--warn-color').trim();
+      return getComputedStyle(document.documentElement).getPropertyValue('--ok-color').trim();
+    }
+
+    function tvocLabel(tvoc, status) {
+      if (status === 'warming_up') return 'Warming Up';
+      if (status === 'error')      return 'Sensor Error';
+      if (tvoc >= ALERT_THRESHOLD) return 'HIGH – CHECK FRIDGE';
+      if (tvoc >= ALERT_THRESHOLD * WARN_THRESHOLD_MULTIPLIER) return 'Elevated';
+      return 'Normal';
+    }
+
+    function statusDotColor(status, alert) {
+      if (status === 'error')      return '#6e40c9';
+      if (status === 'warming_up') return '#ffc107';
+      if (alert)                   return '#dc3545';
+      return '#198754';
+    }
+
+    function humanStatus(status, alert) {
+      if (status === 'mock')        return alert ? 'Demo – High level simulated' : 'Demo mode running';
+      if (status === 'warming_up')  return 'Sensor warming up…';
+      if (status === 'error')       return 'Sensor error – check connection';
+      if (status === 'ok')          return alert ? 'Alert: high ethylene level' : 'Sensor OK – levels normal';
+      return status;
+    }
+
+    // ── Chart setup ──────────────────────────────────────────────────────
+    let tvocChart = null;
+    if (typeof Chart !== 'undefined') {
+      const chartCtx  = document.getElementById('tvoc-chart').getContext('2d');
+      const cssVars   = getComputedStyle(document.documentElement);
+      const textMuted = cssVars.getPropertyValue('--text-muted').trim();
+      const textMain  = cssVars.getPropertyValue('--text-main').trim();
+      tvocChart = new Chart(chartCtx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'TVOC (ppb)',
+            data: [],
+            borderColor: '#58a6ff',
+            backgroundColor: 'rgba(88,166,255,0.08)',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.3,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true,
+          animation: false,
+          scales: {
+            x: {
+              ticks: { color: textMuted, maxTicksLimit: 8, maxRotation: 0 },
+              grid:  { color: 'rgba(48,54,61,0.8)' },
+            },
+            y: {
+              beginAtZero: true,
+              ticks: { color: textMuted },
+              grid:  { color: 'rgba(48,54,61,0.8)' },
+            }
+          },
+          plugins: {
+            legend: { labels: { color: textMain } },
+            annotation: {},
+          }
+        }
+      });
+
+      Chart.register({
+        id: 'thresholdLine',
+        afterDraw: (chart) => {
+          const { ctx, chartArea, scales } = chart;
+          if (!chartArea) return;
+          const y = scales.y.getPixelForValue(ALERT_THRESHOLD);
+          ctx.save();
+          ctx.setLineDash([6, 4]);
+          ctx.strokeStyle = '#dc3545';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(chartArea.left, y);
+          ctx.lineTo(chartArea.right, y);
+          ctx.stroke();
+          ctx.restore();
+        },
+      });
+    } else {
+      const chartCard = document.getElementById('tvoc-chart').closest('.card');
+      if (chartCard) chartCard.style.display = 'none';
+    }
+
+    // ── DOM refs ─────────────────────────────────────────────────────────
+    const tvocEl          = document.getElementById('tvoc-value');
+    const eco2El          = document.getElementById('eco2-value');
+    const tvocBadge       = document.getElementById('tvoc-badge');
+    const alertBanner     = document.getElementById('alert-banner');
+    const statusDot       = document.getElementById('status-dot');
+    const statusText      = document.getElementById('status-text');
+    const lastUpdated     = document.getElementById('last-updated');
+    const mockBadge       = document.getElementById('mock-badge');
+    const mockNote        = document.getElementById('mock-note');
+    const mockControls    = document.getElementById('mock-controls');
+    const alertThreshDisp = document.getElementById('alert-threshold-display');
+    const threshDisp      = document.getElementById('threshold-display');
+    const cameraFeed      = document.getElementById('camera-feed');
+    const cameraError     = document.getElementById('camera-error');
+    const cameraPlaceholder = document.getElementById('camera-placeholder');
+
+    // ── Update live sensor reading ────────────────────────────────────────
+    async function fetchData() {
+      try {
+        const resp = await fetch(apiUrl('/api/data'));
+        if (!resp.ok) return;
+        const d = await resp.json();
+
+        // Pick up alert threshold from the API response
+        if (d.alert_threshold) {
+          ALERT_THRESHOLD = d.alert_threshold;
+          alertThreshDisp.textContent = ALERT_THRESHOLD;
+          threshDisp.textContent = ALERT_THRESHOLD;
+        }
+
+        const color = tvocColor(d.tvoc);
+        tvocEl.textContent     = d.tvoc;
+        tvocEl.style.color     = color;
+        eco2El.textContent     = d.eco2;
+        tvocBadge.textContent  = tvocLabel(d.tvoc, d.status);
+        tvocBadge.style.background = color;
+        tvocBadge.style.color  = d.tvoc >= ALERT_THRESHOLD * WARN_THRESHOLD_MULTIPLIER && d.tvoc < ALERT_THRESHOLD ? '#000' : '#fff';
+
+        alertBanner.classList.toggle('d-none', !d.alert);
+
+        statusDot.style.background = statusDotColor(d.status, d.alert);
+        statusText.textContent = humanStatus(d.status, d.alert);
+
+        if (d.timestamp) {
+          const ts = new Date(d.timestamp);
+          lastUpdated.textContent = ts.toLocaleTimeString();
+        }
+
+        // Show/hide mock mode controls
+        const nowMock = d.status === 'mock';
+        if (nowMock !== IS_MOCK_MODE) {
+          IS_MOCK_MODE = nowMock;
+          mockBadge.classList.toggle('d-none', !IS_MOCK_MODE);
+          mockNote.style.display = IS_MOCK_MODE ? '' : 'none';
+          mockControls.classList.toggle('d-none', !IS_MOCK_MODE);
+        }
+      } catch (_) { /* network hiccup – ignore */ }
+    }
+
+    // ── Update history chart ──────────────────────────────────────────────
+    async function fetchHistory() {
+      if (!tvocChart) return;
+      try {
+        const resp = await fetch(apiUrl('/api/history'));
+        if (!resp.ok) return;
+        const history = await resp.json();
+
+        const labels = history.map(r => {
+          const d = new Date(r.timestamp);
+          return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        });
+        const values = history.map(r => r.tvoc);
+
+        tvocChart.data.labels  = labels;
+        tvocChart.data.datasets[0].data = values;
+        tvocChart.update('none');
+      } catch (_) { /* ignore */ }
+    }
+
+    // ── Camera feed setup ─────────────────────────────────────────────────
+    function initCameraFeed() {
+      cameraFeed.onload = () => {
+        cameraPlaceholder.classList.add('d-none');
+        cameraError.classList.add('d-none');
+        cameraFeed.style.display = '';
+      };
+      cameraFeed.onerror = () => {
+        cameraFeed.style.display = 'none';
+        cameraPlaceholder.classList.add('d-none');
+        cameraError.classList.remove('d-none');
+      };
+      cameraFeed.src = apiUrl('/api/camera/stream');
+    }
+
+    // ── Fridge inventory ──────────────────────────────────────────────────
+    const fridgeListEl = document.getElementById('fridge-list');
+
+    function renderFridgeList(items) {
+      if (!items || items.length === 0) {
+        fridgeListEl.innerHTML = '<p class="text-muted small">No items tracked yet. Scan or add food items above.</p>';
+        return;
+      }
+      fridgeListEl.innerHTML = items.map(item => `
+        <div class="fridge-item" data-id="${item.id}">
+          <div>
+            <span class="fridge-item-label">${escHtml(item.label)}</span>
+            ${item.quantity > 1 ? `<span class="badge bg-secondary ms-1">&times;${item.quantity}</span>` : ''}
+            ${item.notes ? `<span class="text-muted small ms-2">(${escHtml(item.notes)})</span>` : ''}
+          </div>
+          <button class="btn btn-sm btn-outline-danger py-0 px-1 remove-item-btn" data-id="${item.id}" title="Remove">
+            <i class="bi bi-trash3"></i>
+          </button>
+        </div>
+      `).join('');
+
+      fridgeListEl.querySelectorAll('.remove-item-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = parseInt(btn.dataset.id, 10);
+          await removeItem(id);
+        });
+      });
+    }
+
+    async function fetchFridge() {
+      try {
+        const resp = await fetch(apiUrl('/api/fridge'));
+        if (!resp.ok) return;
+        const items = await resp.json();
+        renderFridgeList(items);
+      } catch (_) {}
+    }
+
+    async function addItemToFridge(label, quantity, notes) {
+      try {
+        const resp = await fetch(apiUrl('/api/fridge'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label, quantity, notes }),
+        });
+        if (!resp.ok) return false;
+        await fetchFridge();
+        await fetchRecommendations();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    async function removeItem(id) {
+      try {
+        await fetch(apiUrl(`/api/fridge/${id}`), { method: 'DELETE' });
+        await fetchFridge();
+        await fetchRecommendations();
+      } catch (_) {}
+    }
+
+    // ── Recommendations ───────────────────────────────────────────────────
+    const recsEl = document.getElementById('recommendations-list');
+
+    function urgencyColor(score) {
+      if (score >= 0.7) return '#dc3545';
+      if (score >= 0.4) return '#ffc107';
+      return '#198754';
+    }
+
+    function urgencyLabel(score) {
+      if (score >= 0.7) return 'Eat today';
+      if (score >= 0.4) return 'Eat soon';
+      return 'OK for now';
+    }
+
+    function renderRecommendations(items) {
+      if (!items || items.length === 0) {
+        recsEl.innerHTML = '<p class="text-muted small">Add food items to the fridge to see personalised recommendations.</p>';
+        return;
+      }
+      recsEl.innerHTML = items.map((item, i) => {
+        const color = urgencyColor(item.urgency_score);
+        const label = urgencyLabel(item.urgency_score);
+        const pct   = Math.round(item.urgency_score * 100);
+        const rank  = i === 0 ? '<i class="bi bi-star-fill text-warning me-1" title="Most urgent"></i>' : '';
+        return `
+          <div class="rec-card">
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="rec-label">${rank}${escHtml(item.label)}${item.quantity > 1 ? ` ×${item.quantity}` : ''}</span>
+              <span class="badge rounded-pill" style="background:${color};">${label}</span>
+            </div>
+            <div class="urgency-bar" style="width:${pct}%;background:${color};"></div>
+            <span class="rec-reason">
+              Ethylene sensitivity: ${Math.round(item.sensitivity * 100)}%
+              &nbsp;·&nbsp; urgency score: ${pct}%
+            </span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function fetchRecommendations() {
+      try {
+        const resp = await fetch(apiUrl('/api/fridge/recommendations'));
+        if (!resp.ok) return;
+        const recs = await resp.json();
+        renderRecommendations(recs);
+      } catch (_) {}
+    }
+
+    // ── Food scanning ─────────────────────────────────────────────────────
+    const scanBtn        = document.getElementById('scan-btn');
+    const scanResult     = document.getElementById('scan-result');
+    const scanSpinner    = document.getElementById('scan-spinner');
+    const scanLabelEl    = document.getElementById('scan-label');
+    const scanConfEl     = document.getElementById('scan-confidence');
+    const scanMockTag    = document.getElementById('scan-mock-tag');
+    const candidatesEl   = document.getElementById('candidates-list');
+    const addItemBtn     = document.getElementById('add-item-btn');
+    const rescanBtn      = document.getElementById('rescan-btn');
+    let lastScanLabel    = '';
+
+    async function doScan() {
+      scanResult.classList.add('d-none');
+      scanSpinner.classList.remove('d-none');
+      scanBtn.disabled = true;
+      try {
+        const resp = await fetch(apiUrl('/api/camera/capture'), { method: 'POST' });
+        const data = await resp.json();
+        if (resp.ok && data.label) {
+          lastScanLabel = data.label;
+          scanLabelEl.textContent = data.label;
+          scanConfEl.textContent  = `${Math.round(data.confidence * 100)}% confidence`;
+          scanMockTag.textContent = IS_MOCK_MODE ? '· demo result' : '';
+          if (data.candidates && data.candidates.length > 1) {
+            const others = data.candidates.slice(1).map(c =>
+              `<span class="me-2">${escHtml(c.label)} (${Math.round(c.confidence * 100)}%)</span>`
+            ).join('');
+            candidatesEl.innerHTML = `Also considered: ${others}`;
+          } else {
+            candidatesEl.innerHTML = '';
+          }
+          scanResult.classList.remove('d-none');
+        } else {
+          scanLabelEl.textContent = data.error || 'Unknown error';
+          scanResult.classList.remove('d-none');
+        }
+      } catch (_) {
+        scanLabelEl.textContent = 'Scan failed – network error';
+        scanResult.classList.remove('d-none');
+      } finally {
+        scanSpinner.classList.add('d-none');
+        scanBtn.disabled = false;
+      }
+    }
+
+    scanBtn.addEventListener('click', doScan);
+    rescanBtn.addEventListener('click', doScan);
+
+    addItemBtn.addEventListener('click', async () => {
+      if (!lastScanLabel) return;
+      addItemBtn.disabled = true;
+      const ok = await addItemToFridge(lastScanLabel, 1, '');
+      if (ok) {
+        addItemBtn.textContent = '✓ Added!';
+        setTimeout(() => {
+          addItemBtn.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Add to Fridge';
+          addItemBtn.disabled = false;
+          scanResult.classList.add('d-none');
+        }, 1500);
+      } else {
+        addItemBtn.disabled = false;
+      }
+    });
+
+    // ── Manual add modal ──────────────────────────────────────────────────
+    const modalAddBtn    = document.getElementById('modal-add-btn');
+    const foodLabelInput = document.getElementById('food-label-input');
+    const foodQtyInput   = document.getElementById('food-qty-input');
+    const foodNotesInput = document.getElementById('food-notes-input');
+    const addFoodModal   = (typeof bootstrap !== 'undefined')
+      ? bootstrap.Modal.getOrCreateInstance(document.getElementById('addFoodModal'))
+      : null;
+
+    modalAddBtn.addEventListener('click', async () => {
+      const label = foodLabelInput.value.trim();
+      if (!label) { foodLabelInput.focus(); return; }
+      const qty   = parseInt(foodQtyInput.value, 10) || 1;
+      const notes = foodNotesInput.value.trim();
+      modalAddBtn.disabled = true;
+      const ok = await addItemToFridge(label, qty, notes);
+      modalAddBtn.disabled = false;
+      if (ok) {
+        foodLabelInput.value = '';
+        foodQtyInput.value   = '1';
+        foodNotesInput.value = '';
+        if (addFoodModal) addFoodModal.hide();
+      }
+    });
+
+    [foodLabelInput, foodQtyInput, foodNotesInput].forEach(el => {
+      el.addEventListener('keydown', e => { if (e.key === 'Enter') modalAddBtn.click(); });
+    });
+
+    // ── Utility ───────────────────────────────────────────────────────────
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // ── Demo: Ethylene level slider ───────────────────────────────────────
+    (function initSlider() {
+      const slider       = document.getElementById('ethylene-slider');
+      const sliderValEl  = document.getElementById('slider-value');
+      const sliderAutoEl = document.getElementById('slider-auto-tag');
+      const resetBtn     = document.getElementById('slider-reset-btn');
+      let sliderTimer    = null;
+
+      function sendSliderValue(tvoc) {
+        fetch(apiUrl('/api/sensor/mock-tvoc'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tvoc }),
+        }).catch(() => {});
+      }
+
+      slider.addEventListener('input', () => {
+        const val = parseInt(slider.value, 10);
+        sliderValEl.textContent = val;
+        sliderAutoEl.classList.add('d-none');
+        clearTimeout(sliderTimer);
+        sliderTimer = setTimeout(() => sendSliderValue(val), SLIDER_DEBOUNCE_MS);
+      });
+
+      resetBtn.addEventListener('click', () => {
+        fetch(apiUrl('/api/sensor/mock-tvoc'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tvoc: null }),
+        }).then(() => {
+          slider.value = 60;
+          sliderValEl.textContent = '60';
+          sliderAutoEl.classList.remove('d-none');
+          setTimeout(() => sliderAutoEl.classList.add('d-none'), 3000);
+        }).catch(() => {});
+      });
+    })();
+
+    // Show food recognition toggle when camera is available
+    (function initFoodRecogToggle() {
+      const foodRecogSection = document.getElementById('food-recog-toggle-section');
+      const foodRecogToggle  = document.getElementById('food-recog-toggle');
+      const foodRecogLabel   = document.getElementById('food-recog-toggle-label');
+
+      function applyFoodRecogState(enabled) {
+        scanBtn.disabled = !enabled;
+        foodRecogLabel.textContent = enabled ? 'Enabled' : 'Disabled';
+      }
+
+      foodRecogToggle.addEventListener('change', () => applyFoodRecogState(foodRecogToggle.checked));
+
+      if (deviceUrl) {
+        fetch(apiUrl('/api/camera/status'))
+          .then(r => r.json())
+          .then(s => {
+            if (s.available && IS_MOCK_MODE) {
+              foodRecogSection.classList.remove('d-none');
+              applyFoodRecogState(foodRecogToggle.checked);
+            }
+          })
+          .catch(() => {});
+      }
+    })();
+
+    // ── Settings modal ────────────────────────────────────────────────────
+    const settingsBtn      = document.getElementById('settings-btn');
+    const settingsUrlInput = document.getElementById('settings-url-input');
+    const settingsSaveBtn  = document.getElementById('settings-save-btn');
+    const deviceSettingsModal = (typeof bootstrap !== 'undefined')
+      ? bootstrap.Modal.getOrCreateInstance(document.getElementById('deviceSettingsModal'))
+      : null;
+
+    settingsBtn.addEventListener('click', () => {
+      settingsUrlInput.value = deviceUrl;
+      if (deviceSettingsModal) deviceSettingsModal.show();
+    });
+
+    settingsSaveBtn.addEventListener('click', () => {
+      const newUrl = settingsUrlInput.value.trim().replace(/\/$/, '');
+      if (!newUrl) return;
+      localStorage.setItem(STORAGE_KEY, newUrl);
+      // Reload to reconnect with new URL
+      location.reload();
+    });
+
+    // ── Setup overlay connect button ──────────────────────────────────────
+    const setupUrlInput    = document.getElementById('setup-url-input');
+    const setupConnectBtn  = document.getElementById('setup-connect-btn');
+    const setupConnectIcon = document.getElementById('setup-connect-icon');
+    const setupConnSpinner = document.getElementById('setup-connect-spinner');
+    const setupError       = document.getElementById('setup-error');
+    const setupOverlay     = document.getElementById('setup-overlay');
+    const appContent       = document.getElementById('app-content');
+
+    async function tryConnect(url) {
+      url = url.replace(/\/$/, '');
+      setupConnSpinner.classList.remove('d-none');
+      setupConnectIcon.classList.add('d-none');
+      setupConnectBtn.disabled = true;
+      setupError.classList.add('d-none');
+
+      try {
+        const resp = await fetch(url + '/api/data', { signal: AbortSignal.timeout(CONNECTION_TIMEOUT_MS) });
+        if (!resp.ok) throw new Error(`Server responded with ${resp.status}`);
+        await resp.json();
+        // Success – save and show the dashboard
+        localStorage.setItem(STORAGE_KEY, url);
+        deviceUrl = url;
+        revealApp();
+      } catch (err) {
+        setupError.textContent = `Could not connect: ${err.message || err}. Check the URL and that the device is reachable.`;
+        setupError.classList.remove('d-none');
+      } finally {
+        setupConnSpinner.classList.add('d-none');
+        setupConnectIcon.classList.remove('d-none');
+        setupConnectBtn.disabled = false;
+      }
+    }
+
+    setupConnectBtn.addEventListener('click', () => {
+      const url = setupUrlInput.value.trim();
+      if (!url) { setupUrlInput.focus(); return; }
+      tryConnect(url);
+    });
+
+    setupUrlInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') setupConnectBtn.click();
+    });
+
+    function revealApp() {
+      setupOverlay.style.display = 'none';
+      appContent.classList.remove('d-none');
+      initCameraFeed();
+      startPolling();
+    }
+
+    // ── Polling ───────────────────────────────────────────────────────────
+    let pollingStarted = false;
+    function startPolling() {
+      if (pollingStarted) return;
+      pollingStarted = true;
+      fetchData();
+      fetchHistory();
+      fetchFridge();
+      fetchRecommendations();
+      setInterval(fetchData,            1000);
+      setInterval(fetchHistory,         2000);
+      setInterval(fetchFridge,          5000);
+      setInterval(fetchRecommendations, 5000);
+    }
+
+    // ── Initialise ────────────────────────────────────────────────────────
+    if (deviceUrl) {
+      // A device URL is already saved – go straight to the dashboard
+      revealApp();
+    }
+    // Otherwise the setup overlay remains visible.
+  </script>
+</body>
+</html>

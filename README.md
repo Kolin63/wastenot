@@ -138,9 +138,58 @@ The *Eat These First* panel ranks your inventory items by spoilage urgency:
 - As ethylene rises, high-sensitivity items move to the top of the list
 - The panel refreshes every 5 seconds
 
+## GitHub Pages – Remote Dashboard
+
+The `docs/` folder contains a **static version of the dashboard** that can be hosted on
+[GitHub Pages](https://pages.github.com/) and used to view your device's data from anywhere.
+
+### How it works
+
+1. Your Raspberry Pi continues to run the WasteNot Flask server as normal.
+2. You visit your GitHub Pages URL (e.g. `https://yourusername.github.io/wastenot/`).
+3. The static page asks for your device's URL, saves it in your browser, and then fetches
+   live sensor readings and the camera feed directly from the device.
+
+### Enable GitHub Pages
+
+1. Go to your repository on GitHub → **Settings** → **Pages**.
+2. Under *Build and deployment*, select **Deploy from a branch**.
+3. Choose branch **main** (or your default branch) and folder **`/docs`**.
+4. Click **Save**.  Your dashboard will be live at
+   `https://<your-github-username>.github.io/<repo-name>/` within a few minutes.
+
+### Make your device accessible
+
+The browser on your computer needs to be able to reach the Pi's URL.  Common options:
+
+| Scenario | How to access |
+|---|---|
+| Same Wi-Fi / LAN | Use the Pi's local IP address, e.g. `http://192.168.1.100:5000` |
+| From the internet (HTTPS required) | Use a secure tunnel – see below |
+
+> ⚠️ **HTTPS requirement**: GitHub Pages is always served over HTTPS.  Browsers block
+> HTTP resources loaded from an HTTPS page (*mixed-content* policy).  This means the
+> sensor data **and** the camera feed will be blocked if your device URL is plain HTTP.
+> You must expose the Pi over HTTPS when accessing the dashboard from GitHub Pages.
+
+#### Free HTTPS tunnels
+
+| Tool | Command |
+|---|---|
+| [ngrok](https://ngrok.com/) | `ngrok http 5000` → use the `https://…ngrok-free.app` URL |
+| [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) | `cloudflared tunnel --url http://localhost:5000` |
+
+Once you have an HTTPS URL for the device, paste it into the *Connect to your WasteNot
+device* screen that appears when you first open the GitHub Pages dashboard.
+
+### Changing the device URL later
+
+Click the **⚙ Settings** button in the top-right corner of the dashboard to update the
+device URL at any time.
+
 ---
 
-## Run as a System Service (start on boot)
+
 
 After running the setup script, install WasteNot as a **systemd daemon**:
 
@@ -208,7 +257,9 @@ wastenot/
 ├── food_recognition.py     # MobileNetV3-Small food classifier + mock mode
 ├── fridge.py               # Fridge inventory + spoilage recommendations
 ├── templates/
-│   └── index.html          # Dashboard (Bootstrap 5 + Chart.js)
+│   └── index.html          # Dashboard served by Flask (on-device access)
+├── docs/
+│   └── index.html          # Static dashboard for GitHub Pages hosting
 ├── requirements.txt        # Python dependencies
 ├── wastenot.service        # systemd unit-file template
 ├── scripts/
